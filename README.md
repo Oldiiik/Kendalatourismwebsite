@@ -1,5 +1,4 @@
   # Kendala Tourism Website
-  # Kendala Tourism Website
 
   KenDala is a next-generation digital travel guide designed for international visitors who want to explore Kazakhstan beyond standard tourist routes. The project is built around a simple idea: to make traveling    across the country clear, accessible, and culturally meaningful. Instead of forcing travelers to search for scattered information across different sources, KenDala brings everything together in one place — from   destinations and ready-made travel routes to practical advice and cultural context that truly matters for someone visiting Kazakhstan for the first time.
 
