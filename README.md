@@ -1,7 +1,7 @@
 
   # Kendala Tourism Website
 
-  This is a code bundle for Kendala Tourism Website. The original project is available at https://www.figma.com/design/bZr8r2cO7LAhmTXDvz0zZa/Kendala-Tourism-Website.
+  This is a code bundle for Kendala Tourism Website. The original project is available at https://kendala.figma.site/
 
   ## Running the code
 
