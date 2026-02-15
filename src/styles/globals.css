@@ -1,0 +1,262 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap&subset=cyrillic,cyrillic-ext');
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: "Montserrat", "sans-serif";
+  --font-serif: "Montserrat", "sans-serif";
+  --font-display: "Montserrat", "sans-serif";
+  --font-mono: "Montserrat", "sans-serif";
+}
+
+:root {
+  --font-size: 16px;
+  /* Alabaster Nomad (Light - Main) */
+  --background: #FFFFFF;
+  /* Rugged Onyx */
+  --foreground: #1A1A1A;
+  
+  --card: #F9FAFB;
+  --card-foreground: #1A1A1A;
+  
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1A1A;
+  
+  /* Seasonal Primary (Default Winter) */
+  --primary: #00B4D8;
+  --primary-foreground: #FFFFFF;
+  
+  /* Weathered Pearl */
+  --secondary: #E5E7EB;
+  --secondary-foreground: #1A1A1A;
+  
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
+  
+  /* Steppe Cyan (Tactical) */
+  --accent: #00B4D8;
+  --accent-foreground: #FFFFFF;
+  
+  /* Warning Red */
+  --destructive: #EF4444;
+  --destructive-foreground: #ffffff;
+  
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.1);
+  --input-background: #F9FAFB;
+  
+  --ring: #00B4D8;
+  
+  --radius: 0px;
+  
+  --chart-1: #00B4D8;
+  --chart-2: #10B981;
+  --chart-3: #F59E0B;
+  --chart-4: #D97706;
+  --chart-5: #EF4444;
+  
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1A1A1A;
+  --sidebar-primary: #00B4D8;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F9FAFB;
+  --sidebar-accent-foreground: #00B4D8;
+  --sidebar-border: rgba(0, 0, 0, 0.05);
+  --sidebar-ring: #00B4D8;
+}
+
+.dark {
+  /* Tactical Slate — softer dark */
+  --background: #1C1E26;
+  --foreground: #E0E2E8;
+  --card: #24262E;
+  --card-foreground: #E0E2E8;
+  --popover: #24262E;
+  --popover-foreground: #E0E2E8;
+  --primary: #00B4D8;
+  --primary-foreground: #FFFFFF;
+  --secondary: #2A3040;
+  --secondary-foreground: #E0E2E8;
+  --muted: #2A3040;
+  --muted-foreground: #9CA3AF;
+  --accent: #00B4D8;
+  --accent-foreground: #FFFFFF;
+  --destructive: #EF4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.12);
+  --input-background: #24262E;
+  --ring: #00B4D8;
+  --sidebar: #1C1E26;
+  --sidebar-foreground: #E0E2E8;
+  --sidebar-primary: #00B4D8;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #24262E;
+  --sidebar-accent-foreground: #00B4D8;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #00B4D8;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  --animate-spin-slow: spin 8s linear infinite;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom Animation Keyframes */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/**
+ * Base typography.
+ */
+@layer base {
+  :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
+    h1, h2, h3, h4, p, label, button, input {
+      line-height: 1.5;
+    }
+    
+    h1 { font-size: var(--text-2xl); font-weight: bold; }
+    h2 { font-size: var(--text-xl); font-weight: bold; }
+    h3 { font-size: var(--text-lg); font-weight: bold; }
+    h4 { font-size: var(--text-base); font-weight: bold; }
+    p { font-size: var(--text-base); font-weight: normal; }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+  -webkit-tap-highlight-color: transparent; /* Remove blue tap highlight on mobile */
+  -webkit-text-size-adjust: 100%; /* Prevent font size inflation on iOS */
+}
+
+/*
+ * WCAG 2.1 §2.3.3 — Respect OS-level motion sensitivity.
+ * Disables ALL CSS transitions and animations when the user
+ * has prefers-reduced-motion enabled in their OS settings.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Utility class for hiding scrollbars */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Google Maps 3D Web Component — ensure proper rendering and sizing */
+gmp-map-3d {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+}
+
+/* Standard Google Maps container also needs full sizing */
+.gm-style {
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+/* Hide Google Maps notification banners and dismiss dialogs */
+.gm-style .dismissButton,
+.gm-style .gm-err-autocomplete,
+.gm-style .gm-style-iw-tc,
+.dismissButton,
+.gm-ui-hover-effect,
+div[role="dialog"].gm-style,
+.gm-style > div > div > div > div > div[style*="z-index"] > div[style*="background-color: white"],
+.gm-style .gm-control-active[aria-label="Dismiss"],
+.gm-style iframe + div {
+  display: none !important;
+}
+
+/* Hide the "For development purposes only" watermark and API notices */
+.gm-style > div:last-child > div:last-child > div:last-child > div:last-child {
+  display: none !important;
+}
+
+/* Hide Google Maps modal overlays that require OK/Dismiss */
+.gm-style > div[style*="z-index: 10000"],
+.gm-style > div[style*="z-index: 1000001"],
+.gm-style > div > div[style*="position: absolute"][style*="z-index"] > div[style*="background: white"],
+.gm-style > div > div[style*="position: absolute"][style*="z-index"] > div[style*="background-color: white"] {
+  display: none !important;
+}

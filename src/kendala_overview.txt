@@ -1,0 +1,113 @@
+# KENDALA PROJECT - COMPREHENSIVE TECHNICAL OVERVIEW
+
+## 1. IDENTITY & VISION
+**Name:** Kendala
+**Concept:** A premium, cinematic travel platform for Kazakhstan, blending immersive storytelling with practical itinerary planning.
+**Design Philosophy:** "Nature Distilled"
+- **Aesthetic:** Dark-mode first, high contrast, cinematic typography.
+- **Motifs:** Organic elements (wind, leaves, particles) integrated into UI interactions.
+- **Atmosphere:** Seasonal adaptation (visuals change based on Winter/Spring/Summer/Autumn).
+
+---
+
+## 2. TECHNICAL ARCHITECTURE
+
+### Stack
+- **Frontend Framework:** React 18
+- **Styling:** Tailwind CSS v4 (using CSS variables for dynamic theming)
+- **Animation:** Motion (formerly Framer Motion) for complex transitions, layout reordering, and entrance effects.
+- **Backend/Persistence:** Supabase (PostgreSQL) & LocalStorage hybrid.
+- **Icons:** Lucide React + Custom SVG Paths.
+
+### Directory Structure
+- `/components/pages`: Core views (TripPlanner, History, Home, etc.).
+- `/components/ui`: Reusable atoms (Buttons, Icons, Typewriter).
+- `/contexts`: Global state managers (Trip, Season, Language, Notification).
+- `/utils`: Helper functions (Image preloading, Supabase clients).
+
+---
+
+## 3. CORE SYSTEMS (STATE & DATA)
+
+### A. Trip Management System (`TripContext`)
+The heart of the application, managing user itineraries.
+
+**Data Model (`Trip`):**
+- **Meta:** `id`, `title`, `destination`, `status`, `days`.
+- **Items (`ItineraryItem`):** Array of activities.
+  - Properties: `time`, `type` (travel/stay/activity/food), `cost`, `location`, `notes`.
+
+**Key Mechanisms:**
+1.  **State Management:**
+    - Uses `useRef` to maintain latest state snapshots, preventing stale closures during async operations (like auto-save).
+2.  **Persistence Strategy:**
+    - **Auto-Save:** A `useEffect` hook triggers a debounced (3000ms) save operation whenever `tripTitle`, `destination`, or `itinerary` changes.
+    - **Storage:** Delegates actual persistence to `useTripStorage` (Supabase integration).
+3.  **Tour Integration:**
+    - `addTourToTrip`: Function to inject pre-defined "Tours" into a custom itinerary, intelligently shifting existing items to accommodate the new duration.
+
+### B. Theming Engine (`SeasonContext`)
+A sophisticated theming system that goes beyond simple light/dark modes.
+
+**Seasons:** `winter` | `spring` | `summer` | `autumn`
+**Variants:** `default` | `dark` | `vibrant` | `monochrome`
+
+**Implementation:**
+- **CSS Variables:** Dynamically updates `--primary`, `--background`, `--card-bg` on the `:root` element.
+- **Particle Effects:** Each season triggers specific particle VFX:
+  - Winter: Snow
+  - Spring: Petals
+  - Summer: Rain (subtle)
+  - Autumn: Falling Leaves
+- **Persistence:** User preference saved to `localStorage`.
+
+### C. Localization (`LanguageContext`)
+- **Languages:** English (EN), Russian (RU), Kazakh (KZ).
+- **Content:** Full translation support for UI labels and rich content (History eras).
+
+---
+
+## 4. FEATURE DEEP DIVE
+
+### A. Trip Planner (`TripPlannerPage`)
+**UI Layout:**
+- **Hero Section:** High-impact seasonal visual. Contains the "Saved Trips" dropdown (recently fixed Z-index issue for proper scrolling).
+- **Timeline (Left):** Day selector (Day 01, Day 02...).
+- **Canvas (Right):** Vertical list of itinerary items.
+
+**Key Features:**
+- **Drag-and-Drop:** Uses `Reorder.Group` from Motion to allow users to rearrange activities within a day.
+- **"Magic" Generator:**
+  - AI Simulation: Clicking "Magic" triggers a multi-step "thinking" process.
+  - **Typewriter UI:** A floating card appears, typing out status updates ("Analyzing...", "Finding gems...") before injecting a mock itinerary.
+- **Flyover Mode:** A 3D map visualization mode (`TripRouteFlyover`) to preview the route.
+
+### B. History Module (`HistoryPage`)
+**Structure:**
+- **Chronological Eras:**
+  1. **Ancient (Saka Era):** Focus on the "Golden Man" and animal style art.
+  2. **Silk Road:** Focus on trade, Otrar/Turkestan, and architecture.
+  3. **Kazakh Khanate:** Focus on unification, laws (Zheti Zhargy), and nomadic democracy.
+  4. **Soviet Era:** Focus on Baikonur, industrialization, and brutalist architecture.
+  5. **Modern:** Focus on Independence, Astana, and the digital future.
+
+**Presentation:**
+- **Deep Scroll:** Each era expands into chapters with rich textual narratives.
+- **Gallery:** 4-image grid for each era using Unsplash assets.
+- **Stats:** Key data points (Years, Leaders, Symbols) presented as a dashboard for each era.
+
+### C. Interactive Map
+- **Function:** Exploration of regions.
+- **Integration:** Likely connects with `Region` data to show points of interest visually.
+
+---
+
+## 5. RECENT CHANCE LOG (Current Session)
+1.  **Scroll Fix:**
+    - **Issue:** Dropdown menu in Trip Planner was clipped by `overflow-hidden` on the Hero container.
+    - **Fix:** Moved background images to a separate layer, removed `overflow-hidden` from the parent container, and increased `z-index` to 40.
+2.  **AI Feedback UI:**
+    - **Feature:** Added `Typewriter.tsx` component.
+    - **Implementation:** Created a "ChatGPT-like" typing animation for the "Magic" button feedback, replacing simple toast notifications.
+3.  **Documentation:**
+    - Created this comprehensive technical overview file.
