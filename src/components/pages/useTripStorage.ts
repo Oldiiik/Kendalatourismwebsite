@@ -8,7 +8,6 @@ export const useTripStorage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
-    // Use ref to always access the latest fetchTrips inside saveTrip/deleteTrip
     const fetchTripsRef = useRef<() => Promise<void>>();
 
     const fetchTrips = useCallback(async () => {
@@ -19,7 +18,6 @@ export const useTripStorage = () => {
         let localTrips: Trip[] = [];
         
         try {
-            // Load local storage trips first (always available)
             try {
                 const localTripsStr = localStorage.getItem('kendala_trips');
                 if (localTripsStr) {
@@ -29,7 +27,6 @@ export const useTripStorage = () => {
                 console.warn('[TripStorage] Failed to parse local trips:', e);
             }
             
-            // Try server if logged in
             try {
                 const { data, error: sessionError } = await supabase.auth.getSession();
                 const session = data?.session;
@@ -44,36 +41,28 @@ export const useTripStorage = () => {
                     });
                     
                     if (res.ok) {
-                        const data = await res.json();
+                        const data = await res.json().catch(() => []);
                         if (Array.isArray(data)) {
                             serverTrips = data;
-                            console.log(`[TripStorage] Server returned ${data.length} trips`);
                         }
-                    } else {
-                        console.warn(`[TripStorage] Server returned ${res.status}, falling back to local`);
                     }
                 }
             } catch (e) {
                 console.warn('[TripStorage] Server fetch failed, using local:', e);
             }
 
-            // Merge strategy: server trips take priority, but include local-only trips
             if (serverTrips !== null) {
                 const serverIds = new Set(serverTrips.map(t => t.id));
                 const localOnly = localTrips.filter(t => !serverIds.has(t.id));
                 const merged = [...serverTrips, ...localOnly];
                 setSavedTrips(merged);
-                console.log(`[TripStorage] Merged: ${serverTrips.length} server + ${localOnly.length} local-only = ${merged.length} total`);
             } else {
-                // No server access — use local trips
                 setSavedTrips(localTrips);
-                console.log(`[TripStorage] Using ${localTrips.length} local trips`);
             }
 
         } catch (e) {
             setError('Failed to load trips');
             console.error('[TripStorage] fetchTrips error:', e);
-            // Even on error, try to show local trips
             if (localTrips.length > 0) {
                 setSavedTrips(localTrips);
             }
@@ -82,7 +71,6 @@ export const useTripStorage = () => {
         }
     }, []);
     
-    // Keep ref in sync
     fetchTripsRef.current = fetchTrips;
 
     const saveTrip = useCallback(async (trip: Partial<Trip>, currentId: string | null): Promise<string | null> => {
@@ -91,7 +79,6 @@ export const useTripStorage = () => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             
-            // Prepare trip object
             const tripData = {
                 ...trip,
                 items: trip.items || [],
@@ -100,7 +87,6 @@ export const useTripStorage = () => {
                 date_range: trip.date_range || '',
             };
 
-            // 1. Save to Server if logged in
             if (session?.access_token) {
                 const url = `https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/bookings${currentId ? `/${currentId}` : ''}`;
                 const method = currentId ? 'PUT' : 'POST';
@@ -116,10 +102,8 @@ export const useTripStorage = () => {
                 });
 
                 if (res.ok) {
-                    const result = await res.json();
+                    const result = await res.json().catch(() => ({}));
                     const newId = result.booking ? result.booking.id : currentId;
-                    console.log(`[TripStorage] Saved to server, id: ${newId}`);
-                    // Also mirror to localStorage for offline access
                     try {
                         const localTripsStr = localStorage.getItem('kendala_trips');
                         const localTrips: Trip[] = localTripsStr ? JSON.parse(localTripsStr) : [];
@@ -131,7 +115,7 @@ export const useTripStorage = () => {
                     } catch (e) {
                         console.warn('[TripStorage] Failed to mirror to localStorage:', e);
                     }
-                    await fetchTripsRef.current?.(); // Refresh list
+                    await fetchTripsRef.current?.();
                     return newId;
                 } else {
                     const errText = await res.text().catch(() => 'Unknown error');
@@ -140,7 +124,6 @@ export const useTripStorage = () => {
                 }
             } 
             
-            // 2. Save to Local Storage (Guest)
             const localTripsStr = localStorage.getItem('kendala_trips');
             const trips: Trip[] = localTripsStr ? JSON.parse(localTripsStr) : [];
             
@@ -165,7 +148,6 @@ export const useTripStorage = () => {
 
             localStorage.setItem('kendala_trips', JSON.stringify(trips));
             setSavedTrips(trips);
-            console.log(`[TripStorage] Saved to localStorage, id: ${newId}, total: ${trips.length}`);
             return newId;
 
         } catch (e) {
@@ -193,7 +175,6 @@ export const useTripStorage = () => {
                 });
             }
 
-            // Always clean up local storage too
             try {
                 const localTripsStr = localStorage.getItem('kendala_trips');
                 if (localTripsStr) {

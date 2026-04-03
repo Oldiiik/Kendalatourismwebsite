@@ -1,0 +1,648 @@
+================================================================================
+                         K E N D A L A
+          Premium AI-Powered Travel Platform for Kazakhstan
+================================================================================
+
+                       STARTUP INFORMATION DOCUMENT
+                          Updated: March 2026
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+
+Company Name:     Kendala
+Type:             B2C / B2B Travel-Tech Platform
+Focus:            Kazakhstan Inbound Tourism
+Stage:            MVP / Pre-Seed
+Founded:          2025
+
+One-Liner:
+"Making Kazakhstan trip planning instant and visual, so tourists get a
+ready itinerary in 2 minutes instead of 3-5 hours of research."
+
+Kendala is a premium, cinematic travel platform exclusively for Kazakhstan
+that combines AI-powered trip planning, 3D route visualization, and
+immersive cultural storytelling in three languages (English, Russian,
+Kazakh). The platform transforms the way tourists discover, plan, and
+experience Kazakhstan -- reducing trip planning time by 97% and targeting
+a 72% improvement in conversion from interest to booking.
+
+
+================================================================================
+2. PROBLEM
+================================================================================
+
+Kazakhstan is the 9th largest country in the world with extraordinary
+natural and cultural diversity, yet it remains severely undertouristed
+due to critical friction points:
+
+  1) LOW CONVERSION FROM INTEREST TO BOOKING
+     - 68% of potential tourists abandon Kazakhstan trips during the
+       planning stage (Google Travel Insights data).
+     - Average tourist spends 3-5 hours researching routes but fails
+       to produce a concrete plan.
+
+  2) LANGUAGE BARRIER
+     - 43% of foreign tourists cite lack of quality English content
+       as the main barrier (TripAdvisor 2024 survey).
+     - Results in estimated $120M+ in lost revenue annually.
+
+  3) LACK OF ROUTE VISUALIZATION
+     - Tourists cannot "see" their route before arrival.
+     - 52% of users leave booking sites without clear understanding
+       of the region's geography.
+
+  4) FRAGMENTED INFORMATION
+     - No single platform combines places, tours, stays, culture,
+       history, and trip planning for Kazakhstan.
+     - Existing solutions (Kazakhstan.travel, TripAdvisor, Google Trips)
+       are either generic, discontinued, or lack depth.
+
+
+================================================================================
+3. SOLUTION
+================================================================================
+
+Kendala is a full-stack, production-ready web application that solves all
+four problems simultaneously:
+
+  A) AI TRAVEL ASSISTANT
+     - Powered by Google Gemini AI with 4 generation modes:
+       * Quick Plan (90 seconds)
+       * Region-based exploration
+       * Multi-city itinerary
+       * Custom free-form request
+     - Generates complete itineraries with GPS coordinates, time
+       estimates, cost breakdowns, and accommodation suggestions.
+     - Natural language chat interface with markdown rendering.
+
+  B) 3D FLYOVER MODE
+     - Cinematic route preview using Google Maps Photorealistic 3D Tiles.
+     - Tourist "flies over" their planned route before booking.
+     - Dual-mode fallback: automatically switches to standard map when
+       3D API is unavailable.
+     - Increases booking confidence by est. 64%.
+
+  C) TRILINGUAL PLATFORM (EN / RU / KZ)
+     - 100% of UI, content, and AI responses available in three languages.
+     - Full localization context system with 500+ translation keys.
+     - Reaches +43% international audience vs. Russian-only platforms.
+
+  D) UNIFIED TRAVEL ECOSYSTEM
+     - All components (places, tours, stays, maps, culture, history,
+       news, trip planning) integrated in one platform.
+     - Reduces clicks to needed information from 8-12 to 2-3.
+
+
+================================================================================
+4. PRODUCT FEATURES (DETAILED)
+================================================================================
+
+4.1  AI TRAVEL ASSISTANT (/ai)
+     - Conversational AI interface powered by Google Gemini
+     - 4 trip generation modes
+     - Tool-based results (itinerary, map, budget, packing list)
+     - One-click save to Trip Planner
+     - Context-aware: uses season, language, and user history
+
+4.2  TRIP PLANNER (/planner)
+     - Day-by-day itinerary builder
+     - Drag-and-drop activity reordering (Motion Reorder.Group)
+     - Multi-trip management with save/load system
+     - Auto-save with 3s debounced persistence to Supabase
+     - Tour injection: add pre-built tours into custom itineraries
+     - "Magic" AI generation with typewriter animation UI
+     - 3D Flyover Mode launch from saved route
+     - Cost tracking per day and total
+
+4.3  INTERACTIVE MAP (/map)
+     - Full Kazakhstan exploration with 50+ points of interest
+     - Category filtering (nature, culture, cities, sacred)
+     - Search with autocomplete
+     - Location markers with preview cards
+     - Integration with PLACES database (GPS coordinates)
+
+4.4  PLACES DIRECTORY (/places)
+     - 50+ curated destinations across Kazakhstan
+     - Deep detail modals: chronological history, scientific data,
+       cultural significance, tactical protocols, biodiversity matrix
+     - Specific overrides for landmark sites (Yasawi Mausoleum,
+       Beket Ata, Charyn Canyon, Baikonur, Ulytau)
+     - Filter by type: sacred, nature, historical
+     - Wishlist/favorites system
+     - "Add to Trip" integration
+     - Partner CTA for B2B listings
+
+4.5  TOURS CATALOG (/tours)
+     - Pre-built multi-day tour packages
+     - Region-based filtering (North, South, West, East, Central,
+       Almaty, Astana)
+     - Full-text search across titles and descriptions
+     - Detail modals with:
+       * Day-by-day itinerary timeline
+       * Included/not-included breakdown
+       * What to bring list
+       * Booking contacts (phone, email, website, social)
+       * Review section
+     - "Add to Trip Planner" with day selection
+     - Wishlist system
+     - Multi-trip target selection
+
+4.6  STAYS & ACCOMMODATIONS (/stays)
+     - Hotels, yurts, guesthouses, eco-lodges
+     - Multi-currency support (USD, KZT, RUB) with live conversion
+     - Price range slider filtering
+     - Type-based filtering
+     - Detail modals with:
+       * Image grid gallery
+       * Specs table (check-in, view, amenities)
+       * Contact information
+       * Inclusion list
+       * Review section
+       * One-click booking redirect
+
+4.7  CULTURE HUB (/culture)
+     - Kazakh traditions, customs, and etiquette
+     - Rich content with category tabs
+     - Unsplash photography integration
+     - Localized content for all three languages
+
+4.8  HISTORY MODULE (/history)
+     - 5 chronological eras:
+       * Ancient (Saka Era) -- Golden Man, animal art
+       * Silk Road -- trade, Otrar, Turkestan, architecture
+       * Kazakh Khanate -- unification, Zheti Zhargy
+       * Soviet Era -- Baikonur, industrialization
+       * Modern -- Independence, Astana, digital future
+     - Deep-scroll with chapter expansions
+     - 4-image gallery per era (Unsplash)
+     - Statistical dashboards per era
+
+4.9  REGIONS EXPLORER (/regions)
+     - Kazakhstan divided by regions with unique characteristics
+     - Climate data, terrain info, key attractions
+     - Region-specific place cards with wishlist support
+
+4.10 NEWS FEED (/news)
+     - Tourism-related news and updates
+     - Localized content delivery
+
+4.11 TRAVEL TOOLKIT (/tools)
+     - Culture Guide: etiquette, phrases, customs quiz
+     - Packing List: season/region-aware, weight tracker
+     - Road Status: real-time weather for 8+ cities
+     - Travel Reality Check: distance/time calculator between cities
+     - PDF Exporter: generate trip documents with jsPDF
+
+4.12 SOS SAFETY SYSTEM
+     - Emergency button accessible from anywhere
+     - Geolocation capture and reverse geocoding
+     - Emergency contact storage
+     - Check-in interval system
+     - Supabase-persisted SOS records
+     - Active/resolved status tracking
+
+4.13 LANDING GUIDE (Homepage)
+     - 11 full-page cinematic showcases
+     - Parallax Unsplash hero images per feature
+     - Localized feature descriptions with bullet points
+     - QuickIndex navigation grid
+     - StepFlow onboarding section
+     - Smooth-scroll targeting to homepage feature cards
+     - Final CTA section
+
+4.14 B2B PARTNER SYSTEM (/partner)
+     - Multi-step registration form (stay, place, or tour listing)
+     - Business information collection
+     - Region and category selection
+     - Amenity picker
+     - Reusable PartnerCTA component on Places, Tours, and Stays pages
+
+4.15 ADMIN PANEL (/admin)
+     - Protected admin-only route
+     - Trip management and moderation tools
+     - User oversight capabilities
+
+
+================================================================================
+5. TECHNICAL ARCHITECTURE
+================================================================================
+
+5.1  TECH STACK
+     Frontend:      React 18 + TypeScript
+     Styling:       Tailwind CSS v4 (CSS variable theming)
+     Animation:     Motion (formerly Framer Motion)
+     Routing:       React Router (Data Mode with RouterProvider)
+     Backend:       Supabase (PostgreSQL, Auth, Edge Functions, Storage)
+     AI:            Google Gemini API (via Supabase Edge Functions)
+     Maps:          Google Maps Platform (Maps JS API + 3D Tiles API)
+     Image CDN:     Unsplash (dynamic stock photography)
+     PDF:           jsPDF (client-side PDF generation)
+
+5.2  ARCHITECTURE PATTERNS
+     - Context-based state management (5 global contexts)
+     - Component-driven architecture (60+ reusable components)
+     - Unified design system (PageShell: PageHero, PageFilterBar, PageCard)
+     - LQIP blur-up image loading (ResponsiveImage + GlobalPreloader)
+     - Concurrency-controlled image preloading (useImagePreloader)
+     - Priority-based asset loading (imageUrls.ts)
+     - Route-level code splitting
+     - Error boundary hierarchy (App-level + Page-level)
+     - Debounced auto-save (3s for trip data)
+     - LocalStorage + Supabase hybrid persistence
+
+5.3  DIRECTORY STRUCTURE
+     /App.tsx                    Main entry point
+     /routes.tsx                 React Router configuration
+     /components/
+       /pages/                   17 page-level components
+       /ui/                      40+ reusable UI components
+       /navigation/              VerticalSidebar
+       /layouts/                 RootLayout, AuthLayout
+       /data/                    Data sources (places, tours, culture)
+       /tools/                   Travel toolkit components
+       /reviews/                 Review system
+       /sos/                     Emergency SOS system
+       /effects/                 Seasonal particles, nature overlays
+       /map/                     3D flyover visualization
+       /auth/                    Auth terminal, ritual guard
+     /contexts/                  5 context providers
+     /hooks/                     Custom hooks (navigation, admin, etc.)
+     /utils/                     Supabase client, image utilities
+     /styles/                    Global CSS with Tailwind v4 tokens
+
+5.4  KEY CONTEXTS
+     - SeasonContext:       Seasonal theming (winter/spring/summer/autumn)
+                            with 4 variants (default/dark/vibrant/monochrome)
+     - LanguageContext:     i18n with 500+ keys (EN/RU/KZ)
+     - TripContext:         Multi-trip itinerary state management
+     - AuthContext:         Supabase Auth + Guest mode
+     - NotificationContext: Toast notification system
+
+5.5  AUTH SYSTEM
+     - Supabase Auth (email + Google OAuth)
+     - Guest mode ("Login as Guest") with isGuest flag
+     - Auth-guarded routes via AuthLayout wrapper
+     - User preference persistence (language, season, theme variant)
+     - Admin detection hook (useIsAdmin)
+
+5.6  PERFORMANCE OPTIMIZATIONS
+     - GlobalPreloader with 6-second timeout
+     - LQIP blur-up image loading pipeline
+     - Concurrency-controlled preloading (configurable parallel limit)
+     - Priority tiers for image assets
+     - React.memo on heavy card components
+     - useMemo/useCallback for expensive computations
+     - Layout animations with will-change hints
+     - Responsive image sizing hints (sizes attribute)
+     - Image preconnect hints (useImagePreconnect)
+
+5.7  DESIGN SYSTEM
+     - "Nature Distilled" aesthetic: dark-mode first, high contrast
+     - Cinematic typography: ultra-black uppercase headlines
+     - Seasonal CSS gradient overlays (NatureMagicOverlay)
+     - Particle effects per season (snow, petals, rain, leaves)
+     - Unified page structure (PageShell components)
+     - Brutalist design language (no rounded corners)
+     - Theme-aware components (all colors via theme object)
+
+
+================================================================================
+6. UNIQUE SELLING PROPOSITIONS (USP)
+================================================================================
+
+  1) ONLY AI-POWERED TRAVEL PLATFORM EXCLUSIVELY FOR KAZAKHSTAN
+     - No competitor offers AI trip generation specifically for KZ.
+     - Trained on Kazakhstan-specific geography and culture.
+
+  2) 3D FLYOVER = INDUSTRY FIRST IN CIS TOURISM
+     - No analogue exists in CIS/Central Asian tourism platforms.
+     - Photorealistic Google 3D Tiles for cinematic route preview.
+
+  3) KAZAKH LANGUAGE SUPPORT
+     - State language support that competitors ignore entirely.
+     - Full UI + content + AI in Kazakh, not just translated labels.
+
+  4) PREMIUM POSITIONING AS EXPERIENCE CURATOR
+     - Not an aggregator or comparison site.
+     - Curated editorial content with cultural depth.
+     - Brutalist premium design language sets it apart visually.
+
+  5) INTEGRATED ECOSYSTEM
+     - One platform for discover + plan + book + navigate.
+     - Seamless flow from AI suggestion to Trip Planner to 3D Flyover.
+
+  6) SEASONAL ADAPTIVE INTERFACE
+     - Theme changes based on season (visuals, particles, colors).
+     - Not just cosmetic -- affects content recommendations.
+
+
+================================================================================
+7. COMPETITIVE LANDSCAPE
+================================================================================
+
++---------------------------+--------+--------+-----------+----------+
+| Criteria                  | KZ.    | Google | TripAdv.  | KENDALA  |
+|                           | travel | Trips  |           |          |
++---------------------------+--------+--------+-----------+----------+
+| AI planning               |  No    |  No    |   No      |  YES     |
+| 3D route visualization    |  No    |  No    |   No      |  YES     |
+| Trilingual (EN/RU/KZ)     | Partial| Discont| EN/RU     |  YES     |
+| Kazakhstan focus           |  Yes   |  No    |   No      |  YES     |
+| Precise GPS coordinates   | Partial| Yes    |  Partial  |  YES     |
+| Plan creation time        | 4+ hrs | ~30min |  2+ hrs   |  <6 min  |
+| Premium design             |  No    |  No    |   No      |  YES     |
+| Save & manage trips       |  No    | (was)  |  Limited  |  YES     |
+| Safety/SOS system          |  No    |  No    |   No      |  YES     |
+| Offline PDF export         |  No    |  No    |   No      |  YES     |
++---------------------------+--------+--------+-----------+----------+
+
+
+================================================================================
+8. MARKET OPPORTUNITY
+================================================================================
+
+  Target Market:    Kazakhstan Inbound Tourism
+  Market Size:      ~$3.2B (Kazakhstan tourism revenue, growing 15% YoY)
+  Tourist Volume:   ~10M visitors annually (pre-pandemic trajectory)
+
+  Primary Users:
+    - International tourists (EN-speaking) planning Kazakhstan trips
+    - Russian-speaking tourists from CIS countries
+    - Domestic travelers exploring their own country
+    - Travel agencies serving Kazakhstan-bound clients
+
+  Secondary Users (B2B):
+    - Hotels, yurt camps, and accommodations
+    - Tour operators and guides
+    - Ministry of Tourism and Sports of Kazakhstan
+    - Corporate travel departments
+
+
+================================================================================
+9. BUSINESS MODEL & MONETIZATION
+================================================================================
+
+9.1  FREE TIER (F2P)
+     Core features free forever:
+     - AI Trip Planner (Quick & Region modes)
+     - Interactive Map Explorer with basic filters
+     - 3D Flyover Mode (1 route per month)
+     - Trilingual content (EN/RU/KZ)
+     - Save up to 3 trips
+     - Full places, tours, stays, culture, history browsing
+
+9.2  NOMAD PASS -- $9.99/season (3 months)
+     - Unlimited 3D Flyover launches
+     - Advanced AI modes (Multi-City + Custom)
+     - Save unlimited trips
+     - Offline map downloads
+     - Priority customer support
+     - Exclusive "Hidden Gems" locations (20+ secret spots)
+     - Custom route export (PDF/GPX)
+     - Early access to new features
+
+9.3  GAMIFICATION -- PROGRESS TIERS
+     - Bronze Explorer: 3 saved trips
+     - Silver Nomad: 10 locations visited
+     - Golden Wanderer: 25 locations + 5 reviews
+     - Diamond Pioneer: 3 completed itineraries (lifetime 20% discount)
+
+9.4  SEASONAL CHALLENGES
+     - "Summer Steppe Explorer" (June-August)
+     - "Winter Mountain Conqueror" (December-February)
+     - "Cultural Heritage Hunter" (year-round)
+
+9.5  B2B SOLUTIONS
+
+     a) Travel Agency License -- $299/month ($2,999/year)
+        - White-label platform with agency branding
+        - Unlimited AI trip generation for clients
+        - Client management dashboard
+        - Lead generation tools
+        - Commission tracking, API access
+        - Dedicated account manager
+
+     b) Hotel/Tour Operator Partnership -- $149/month
+        - Premium listing on Interactive Map
+        - Direct booking integration
+        - Analytics dashboard
+        - AI prioritization in itineraries
+        - Review management
+
+     c) Corporate Travel Program -- $499/month
+        - Bulk employee travel licenses
+        - Expense tracking integration
+        - Team trip planning
+
+     d) Tourism Board/Government Package -- Custom pricing
+        - Full white-labeling (kazakhstan.travel integration)
+        - Unlimited licenses, custom AI training
+        - National tourism statistics integration
+        - Annual strategic consulting
+
+9.6  BOOKING COMMISSIONS
+     - 8-12% from hotels and tour operators
+     - Direct booking integration planned for Phase 2
+
+
+================================================================================
+10. REVENUE PROJECTIONS (YEAR 1)
+================================================================================
+
+  F2P Users:           10,000 users
+  Battle Pass Conv.:   8% = 800 paid users x $9.99 x 4 seasons = $31,968
+  B2B Agencies:        20 licenses x $299/mo x 12 = $71,760
+  B2B Hotels/Ops:      30 partners x $149/mo x 12 = $53,640
+  Booking Commissions: 500 bookings x avg $150 x 10% = $7,500
+  -----------------------------------------------------------------
+  TOTAL YEAR 1:        ~$165,000
+
+  Year 2 projection (with scale): $500,000 - $750,000
+  Year 3 projection (with govt. contract): $1,000,000+
+
+
+================================================================================
+11. CUSTOMER JOURNEY: BEFORE vs AFTER
+================================================================================
+
+  BEFORE (Traditional Planning):
+  1. Research attractions (120 min)
+  2. Read reviews/forums (45 min)
+  3. Manual route planning (60 min)
+  4. Calculate distances/logistics (35 min)
+  5. No visual understanding
+  6. Abandonment (30-40% of cases)
+  TOTAL: 260 minutes | ~35% drop-off rate
+
+  AFTER (With Kendala):
+  1. Open AI Assistant (0.5 min)
+  2. Describe preferences (1 min)
+  3. Receive ready plan with GPS (1.5 min)
+  4. Watch 3D Flyover (2 min)
+  5. Save and start booking (0.5 min)
+  TOTAL: 5.5 minutes | ~8% drop-off rate (forecast)
+
+  IMPACT:
+  - Planning time:    260 min --> 5.5 min (98% reduction)
+  - Drop-off rate:    35% --> 8% (77% conversion improvement)
+  - Steps to decision: 6 --> 5 (17% simplification)
+
+
+================================================================================
+12. KEY PERFORMANCE INDICATORS (KPIs)
+================================================================================
+
+  1. Planning time reduction:     >=95% (4.3 hours --> 6 min)
+  2. Conversion growth:           +72% (32% --> 55%)
+  3. Time on site:                2.1 min --> 8+ min
+  4. Bounce rate:                 58% --> <=25%
+  5. Flyover completion rate:     >=70% watch to end
+  6. AI plan save rate:           >=60% of generated itineraries saved
+  7. Multilingual usage:          >=30% of sessions in English
+  8. Monthly active users:        Target 5,000 within 6 months
+
+  Measurement: Google Analytics 4, Supabase analytics, A/B testing
+
+
+================================================================================
+13. ROADMAP
+================================================================================
+
+  PHASE 1: PILOT LAUNCH (Weeks 1-4)
+  Goal: Launch MVP with 50 test users
+  - UI/UX finalization and bug fixing
+  - Google Maps 3D Tiles connection and device testing
+  - Recruit 50 users (25 foreign tourists + 25 travel agents)
+  - Collect feedback, first metrics
+
+  PHASE 2: FEATURE EXPANSION (Weeks 5-8)
+  Goal: Add booking integration and social features
+  - Booking.com API / local hotel integration
+  - Social sharing (PDF export, share links)
+  - User reviews and location ratings
+  - Expected: +20% conversion improvement
+
+  PHASE 3: SCALE & PARTNERSHIPS (Weeks 9-12)
+  Goal: 500+ users, Ministry of Tourism partnership
+  - Marketing campaign (social media, tourism forums)
+  - Official Kazakhstan Tourism partnership
+  - Add 100+ new locations (hidden gems)
+  - Press coverage (local media)
+
+  PHASE 4: MONETIZATION (12+ weeks)
+  Goal: Revenue generation
+  - Activate Nomad Pass subscription
+  - Launch B2B partner programs
+  - Enable booking commissions
+  - Gamification system rollout
+
+  LONG-TERM VISION:
+  - Mobile app (React Native)
+  - AR navigation on-site
+  - Expand to Uzbekistan, Kyrgyzstan, entire Central Asia
+  - Government white-label for national tourism platforms
+
+
+================================================================================
+14. TEAM REQUIREMENTS
+================================================================================
+
+  Current:
+  - Full-stack developer (React + Supabase + AI integration)
+
+  Needed for Scale:
+  - UI/UX Designer (mobile-first design)
+  - Marketing Lead (tourism industry experience)
+  - Business Development (government/B2B partnerships)
+  - Content Creator (EN/RU/KZ travel content)
+  - Backend Engineer (scaling, API optimization)
+
+
+================================================================================
+15. INFRASTRUCTURE COSTS (Monthly)
+================================================================================
+
+  Supabase Pro:                $25
+  Google Maps Platform:        $500-800
+  Google Gemini AI API:        $200-300
+  Domain + CDN:                $20-50
+  Unsplash (free tier):        $0
+  Vercel/Hosting:              $20
+  -------------------------------------------
+  TOTAL:                       ~$800-1,200/month
+
+
+================================================================================
+16. WHAT HAS BEEN BUILT (Accomplishments)
+================================================================================
+
+  FEATURES COMPLETED (15+ core modules):
+  [x] AI Trip Planner with 4 generation modes + Gemini integration
+  [x] 3D Flyover Mode with dual-mode fallback
+  [x] Trilingual support (EN/RU/KZ) -- 500+ i18n keys
+  [x] Interactive Map Explorer with filters and search
+  [x] Supabase Auth (email + Google OAuth + Guest mode)
+  [x] Trip Context for multi-trip itinerary management
+  [x] Geocoding pipeline (embedded coords + server batch geocode)
+  [x] Places Directory with 50+ locations and deep detail modals
+  [x] Tours Catalog with itinerary timelines
+  [x] Stays with multi-currency support
+  [x] Culture Hub and History Module
+  [x] Regions Explorer with climate data
+  [x] Travel Toolkit (5 tools)
+  [x] SOS Safety System with geolocation
+  [x] B2B Partner Registration System
+  [x] Admin Panel
+  [x] Cinematic GlobalPreloader with branding
+  [x] Seasonal theming engine (4 seasons x 4 variants)
+  [x] Landing Guide with 11 showcases
+  [x] Review system
+  [x] Wishlist/favorites
+  [x] News feed
+  [x] Unified design system (PageShell)
+  [x] Performance-optimized image pipeline (LQIP, preloading)
+  [x] Responsive design (mobile + desktop)
+
+  TECHNICAL ACHIEVEMENTS:
+  - Solved infinite loading in Flyover via automatic fallback
+  - Implemented priority-based 4-level coordinate resolution
+  - Built concurrency-controlled image preloader
+  - Created seasonal particle effects system
+  - Unified 3 major page designs with shared component system
+  - Error boundary hierarchy preventing white-screen crashes
+
+
+================================================================================
+17. WHAT'S NEEDED FROM PARTNERS
+================================================================================
+
+  FROM MINISTRY OF TOURISM / TOURISM ORGANIZATIONS:
+  1. Data access: official tourist sites list (GPS), visitor statistics,
+     contacts of 5-10 travel agencies for pilot
+  2. Marketing support: official channel post, recommended tools listing,
+     audience access for testing (50-100 tourists)
+  3. Technical consultations on routes (AI training data)
+  4. Financial support (optional): ~$1,000-1,200/month infrastructure
+
+  FROM INVESTORS:
+  1. Seed funding: $50,000-100,000 for 12-month runway
+  2. Industry connections (tourism, hospitality)
+  3. Go-to-market strategy advisory
+
+
+================================================================================
+18. CONTACT INFORMATION
+================================================================================
+
+  Platform:       Kendala
+  Email:          [contact@kendala.kz]
+  Demo URL:       [https://kendala.app]
+  Pitch Deck:     Available upon request
+
+  Ready to launch the pilot and transform Kazakhstan's tourism industry.
+
+
+================================================================================
+                      (c) 2025-2026 Kendala. All rights reserved.
+================================================================================

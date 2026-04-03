@@ -3,16 +3,20 @@ import { useSeason } from '../../contexts/SeasonContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { AuthTerminal } from '../auth/AuthTerminal';
 import { motion, AnimatePresence } from 'motion/react';
+import { PageTransition } from '../ui/PageTransition';
 import { ResponsiveImage } from '../ui/ResponsiveImage';
-import { Mountain, Compass, Wind, Leaf, Sun, Snowflake, ArrowLeft } from 'lucide-react';
+import { Mountain, Compass, Wind, Leaf, Sun, Snowflake, ArrowLeft } from '../ui/icons';
 import { getSeasonSelectionUrl } from '../../utils/imageUrls';
+import { useAppNavigate } from '../../hooks/useAppNavigate';
 
 interface AuthPageProps {
-  onSuccess: () => void;
-  onNavigate: (page: string) => void;
+  onSuccess?: () => void;
+  onNavigate?: (page: string) => void;
 }
 
-export const AuthPage = ({ onSuccess, onNavigate }: AuthPageProps) => {
+export const AuthPage = ({ onSuccess }: AuthPageProps = {}) => {
+  const onNavigate = useAppNavigate();
+  const handleSuccess = onSuccess || (() => onNavigate('planner'));
   const { theme, season } = useSeason();
   const { language, t } = useLanguage();
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -64,15 +68,15 @@ export const AuthPage = ({ onSuccess, onNavigate }: AuthPageProps) => {
 
   const labels = {
     kz: { access: 'Кіру', kinship: 'Мәңгілік бауырластық', records: 'Киелі жазбалар', kinshipDesc: 'Мыңдаған жылдар бойы осы жерде жүрген зерттеушілер қатарына қосылыңыз.', recordsDesc: 'Сіздің тәжірибеңіз таулардың цифрлық жүрегінде сақталады.', back: 'Далаға оралу' },
-    ru: { access: 'Вход', kinship: 'Вечное родство', records: 'Священные записи', kinshipDesc: 'Присоединяйтесь к кругу исследователей, ступавших по этим землям тысячелетиями.', recordsDesc: 'В��ш опыт сохраняется в цифровом сердце гор.', back: 'Вернуться в степь' },
+    ru: { access: 'Вход', kinship: 'Вечное родство', records: 'Священные записи', kinshipDesc: 'Присоединяйтесь к кругу исследователей, ступавших по этим землям тысячелетиями.', recordsDesc: 'Ваш опыт сохраняется в цифровом сердце гор.', back: 'Вернуться в степь' },
     en: { access: 'Access', kinship: 'Eternal Kinship', records: 'Sacred Records', kinshipDesc: 'Join the circle of explorers who have walked these lands for millennia.', recordsDesc: 'Your experiences are preserved in the digital heart of the mountains.', back: 'Return to Steppe' }
   }[language];
 
   const SeasonIcon = seasonalAssets.icon;
 
   return (
+    <PageTransition>
     <div className="min-h-screen relative flex flex-col lg:flex-row overflow-x-hidden" style={{ backgroundColor: theme.background }}>
-      {/* Background Layer - Vibrant & Natural */}
       <div className="absolute inset-0">
         <ResponsiveImage 
           src={seasonalAssets.image}
@@ -80,11 +84,9 @@ export const AuthPage = ({ onSuccess, onNavigate }: AuthPageProps) => {
           alt="Seasonal Landscape"
           priority
         />
-        {/* Soft light overlay instead of heavy dark */}
         <div className="absolute inset-0 bg-gradient-to-b lg:bg-gradient-to-r from-white/60 sm:from-white/40 via-white/10 to-transparent" />
       </div>
 
-      {/* Cinematic Content Layer — above auth on mobile, left on desktop */}
       <div className="w-full lg:w-3/5 relative flex flex-col justify-center p-6 sm:p-12 lg:p-24 z-10 pb-8 lg:pb-24">
         <motion.div
           initial={{ opacity: 0, x: -30 }}
@@ -97,7 +99,7 @@ export const AuthPage = ({ onSuccess, onNavigate }: AuthPageProps) => {
               <motion.div 
                 animate={{ rotate: 360 }}
                 transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                className="w-8 h-8 sm:w-10 sm:h-10 border border-current rounded-full flex items-center justify-center backdrop-blur-sm opacity-60"
+                className="w-8 h-8 sm:w-10 sm:h-10 border border-current flex items-center justify-center backdrop-blur-sm opacity-60"
                 style={{ color: theme.text }}
               >
                 <SeasonIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -108,18 +110,15 @@ export const AuthPage = ({ onSuccess, onNavigate }: AuthPageProps) => {
               </span>
             </div>
             
-            {/* Title — smaller on mobile since auth is the star */}
             <h1 className="text-3xl sm:text-5xl lg:text-8xl xl:text-9xl font-sans font-black uppercase tracking-tighter leading-none" style={{ color: theme.text }}>
               {labels.access}
             </h1>
             
-            {/* Description — hidden on mobile, visible on larger screens */}
             <p className="hidden sm:block text-base sm:text-lg md:text-xl font-sans leading-relaxed max-w-lg opacity-80 lg:opacity-70" style={{ color: theme.text }}>
               "{seasonalAssets.desc[language]}"
             </p>
           </div>
 
-          {/* Info grid — hidden on mobile, visible on desktop */}
           <div className="hidden lg:grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 border-t border-current pt-8 sm:pt-12" style={{ borderColor: `${theme.text}20` }}>
             <div className="space-y-3 sm:space-y-4 group">
               <div className="flex items-center gap-3">
@@ -154,7 +153,6 @@ export const AuthPage = ({ onSuccess, onNavigate }: AuthPageProps) => {
         </motion.div>
       </div>
 
-      {/* Auth Terminal Section — TOP on mobile, right on desktop */}
       <div className="w-full lg:w-2/5 flex items-center justify-center p-5 pt-8 sm:p-8 lg:p-16 xl:p-24 relative z-20 backdrop-blur-md border-b lg:border-b-0 lg:border-l min-h-[60vh] lg:min-h-screen" style={{ borderColor: `${theme.text}10`, backgroundColor: `${theme.background}90` }}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -162,7 +160,6 @@ export const AuthPage = ({ onSuccess, onNavigate }: AuthPageProps) => {
           transition={{ delay: 0.15, duration: 0.8 }}
           className="w-full max-w-md"
         >
-          {/* Mobile-only branding above auth form */}
           <div className="lg:hidden mb-6 flex items-center gap-3">
             <div className="w-6 h-6 border border-current flex items-center justify-center opacity-50" style={{ color: theme.text }}>
               <SeasonIcon className="w-3 h-3" />
@@ -172,7 +169,7 @@ export const AuthPage = ({ onSuccess, onNavigate }: AuthPageProps) => {
             </span>
           </div>
 
-          <AuthTerminal onAuthSuccess={onSuccess} />
+          <AuthTerminal onAuthSuccess={handleSuccess} />
           
           <div className="mt-6 lg:mt-12 flex flex-col items-center text-center space-y-3 lg:space-y-6">
             <div className="w-8 h-px opacity-10" style={{ backgroundColor: theme.text }} />
@@ -183,5 +180,6 @@ export const AuthPage = ({ onSuccess, onNavigate }: AuthPageProps) => {
         </motion.div>
       </div>
     </div>
+    </PageTransition>
   );
 };

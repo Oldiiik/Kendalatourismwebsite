@@ -486,7 +486,8 @@ const FlyoverInner = ({ itinerary, onClose, autoPlay = true }: TripRouteFlyoverP
         try {
           const r = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/geocode-batch`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}` }, body: JSON.stringify({ locations: pending.map(p => p.q) }), signal: abortCtrl.signal });
           clearTimeout(ft);
-          const d = await r.json();
+          if (!r.ok) throw new Error(`Geocode batch failed: ${r.status}`);
+          const d = await r.json().catch(() => ({ results: [] }));
           if (d.results) {
             for (let j = 0; j < pending.length; j++) {
               if (dead) return;
@@ -778,7 +779,8 @@ export const TripRouteFlyover = (props: TripRouteFlyoverProps) => {
     (async () => {
       try {
         const r = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/maps-config`, { headers: { 'Authorization': `Bearer ${publicAnonKey}` } });
-        const d = await r.json();
+        if (!r.ok) throw new Error(`Config fetch failed: ${r.status}`);
+        const d = await r.json().catch(() => ({}));
         if (d.apiKey) setApiKey(d.apiKey);
       } catch (e) { console.error('[Flyover] Config fetch failed:', e); }
     })();

@@ -1,30 +1,33 @@
-
-  {
-      "name": "Kendala Tourism Website",
-      "version": "0.1.0",
-      "private": true,
-      "dependencies": {
-          "@jsr/supabase__supabase-js": "^2.49.8",
-          "@react-google-maps/api": "*",
-          "@supabase/supabase-js": "*",
-          "hono": "*",
-          "jspdf": "*",
-          "lucide-react": "*",
-          "motion": "*",
-          "react": "^18.3.1",
-          "react-dom": "^18.3.1",
-          "react-markdown": "*",
-          "sonner": "^2.0.3",
-          "tailwindcss": "*",
-          "zustand": "*"
-      },
-      "devDependencies": {
-          "@types/node": "^20.10.0",
-          "@vitejs/plugin-react-swc": "^3.10.2",
-          "vite": "6.3.5"
-      },
-      "scripts": {
-          "dev": "vite",
-          "build": "vite build"
-      }
+{
+  "name": "Kendala Tourism Website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@jsr/supabase__supabase-js": "^2.49.8",
+    "@react-google-maps/api": "*",
+    "@supabase/supabase-js": "*",
+    "hono": "*",
+    "jspdf": "*",
+    "motion": "*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "*",
+    "react-router": "*",
+    "sonner": "^2.0.3",
+    "tailwindcss": "*",
+    "tw-animate-css": "^1.3.8",
+    "zustand": "*"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.12",
+    "@types/node": "^20.10.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "tailwindcss": "4.1.12",
+    "vite": "6.3.5"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
   }
+}

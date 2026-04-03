@@ -8,6 +8,14 @@ import weatherApp from "./weather_config.tsx";
 
 const app = new Hono();
 
+app.onError((err, c) => {
+    if (err.message && err.message.includes("connection closed before message completed")) {
+        return c.text("", 204);
+    }
+    console.error("Hono error:", err);
+    return c.json({ error: err.message }, 500);
+});
+
 app.use('*', logger(console.log));
 
 app.use(
@@ -264,6 +272,32 @@ app.delete("/make-server-3ab99f71/bookings/:id", async (c) => {
     }
 });
 
+// --- AI SESSIONS ---
+app.get("/make-server-3ab99f71/ai/sessions", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const sessions = (await kv.get(`ai_sessions:${user.id}`)) || [];
+        return c.json(sessions);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/ai/sessions", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const sessions = await c.req.json();
+        await kv.set(`ai_sessions:${user.id}`, sessions);
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
 // --- AI (GEMINI) ---
 app.post("/make-server-3ab99f71/ai/chat", async (c) => {
     const user = await getUser(c);
@@ -281,18 +315,28 @@ app.post("/make-server-3ab99f71/ai/chat", async (c) => {
         const MODEL = "gemini-2.5-flash"; 
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
 
-        const response = await fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: message }] }],
-                system_instruction: {
-                    parts: [{ text: "You are Kendala AI, an elite travel logistics engine for Kazakhstan. Use nomadic metaphors but keep it functional." }]
-                }
-            })
-        });
+        const requestBody = {
+            contents: [{ parts: [{ text: message }] }],
+            system_instruction: {
+                parts: [{ text: "You are Kendala AI, an elite travel logistics engine for Kazakhstan. Use nomadic metaphors but keep it functional." }]
+            }
+        };
 
-        if (!response.ok) {
+        let response: Response | null = null;
+        const MAX_RETRIES = 3;
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            response = await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestBody)
+            });
+            if (response.ok || (response.status !== 503 && response.status !== 429)) break;
+            if (attempt < MAX_RETRIES - 1) {
+                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+            }
+        }
+
+        if (!response || !response.ok) {
             const errorData = await response.json().catch(() => ({}));
             console.error("Gemini API error:", errorData);
 
@@ -738,4 +782,733 @@ app.post("/make-server-3ab99f71/geocode-batch", async (c) => {
     }
 });
 
-Deno.serve(app.fetch);
+// --- REVIEWS ---
+app.get("/make-server-3ab99f71/reviews/:type/:targetId", async (c) => {
+    try {
+        const type = c.req.param('type');
+        const targetId = c.req.param('targetId');
+        const reviews = (await kv.get(`reviews:${type}:${targetId}`)) || [];
+        return c.json(reviews);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/reviews/:type/:targetId", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const type = c.req.param('type');
+        const targetId = c.req.param('targetId');
+        const { rating, text, targetName } = await c.req.json();
+
+        const reviews = (await kv.get(`reviews:${type}:${targetId}`)) || [];
+
+        const existing = reviews.findIndex((r: any) => r.userId === user.id);
+        if (existing !== -1) {
+            reviews[existing] = {
+                ...reviews[existing],
+                rating,
+                text,
+                date: new Date().toISOString(),
+            };
+        } else {
+            reviews.push({
+                id: crypto.randomUUID(),
+                userId: user.id,
+                userName: user.user_metadata?.name || user.email?.split('@')[0] || 'Traveler',
+                rating,
+                text,
+                date: new Date().toISOString(),
+                helpful: 0,
+            });
+        }
+
+        await kv.set(`reviews:${type}:${targetId}`, reviews);
+
+        // Track known review targets for admin listing
+        const knownTargets = (await kv.get(`review_targets:${type}`)) || [];
+        if (!knownTargets.includes(targetId)) {
+            knownTargets.push(targetId);
+            await kv.set(`review_targets:${type}`, knownTargets);
+        }
+
+        const allUserReviews = (await kv.get(`user_reviews:${user.id}`)) || [];
+        const entry = { type, targetId, targetName, rating, date: new Date().toISOString() };
+        const existingUserReview = allUserReviews.findIndex((r: any) => r.targetId === targetId && r.type === type);
+        if (existingUserReview !== -1) allUserReviews[existingUserReview] = entry;
+        else allUserReviews.push(entry);
+        await kv.set(`user_reviews:${user.id}`, allUserReviews);
+
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/reviews/:type/:targetId/:reviewId/helpful", async (c) => {
+    try {
+        const type = c.req.param('type');
+        const targetId = c.req.param('targetId');
+        const reviewId = c.req.param('reviewId');
+
+        const reviews = (await kv.get(`reviews:${type}:${targetId}`)) || [];
+        const idx = reviews.findIndex((r: any) => r.id === reviewId);
+        if (idx !== -1) {
+            reviews[idx].helpful = (reviews[idx].helpful || 0) + 1;
+            await kv.set(`reviews:${type}:${targetId}`, reviews);
+        }
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// --- COMMUNITY / SHARED TRIPS ---
+app.get("/make-server-3ab99f71/community/trips", async (c) => {
+    try {
+        const trips = (await kv.get("community:trips")) || [];
+        return c.json(trips);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.get("/make-server-3ab99f71/community/trips/:tripId", async (c) => {
+    try {
+        const tripId = c.req.param('tripId');
+        const trips = (await kv.get("community:trips")) || [];
+        const trip = trips.find((t: any) => t.id === tripId);
+        if (!trip) return c.json({ error: "Trip not found" }, 404);
+
+        trip.views = (trip.views || 0) + 1;
+        await kv.set("community:trips", trips);
+
+        return c.json(trip);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/community/trips", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const tripData = await c.req.json();
+        const trips = (await kv.get("community:trips")) || [];
+
+        const published = {
+            id: crypto.randomUUID(),
+            ...tripData,
+            authorId: user.id,
+            authorName: user.user_metadata?.name || user.email?.split('@')[0] || 'Traveler',
+            publishedAt: new Date().toISOString(),
+            likes: 0,
+            views: 0,
+        };
+
+        trips.unshift(published);
+        if (trips.length > 200) trips.length = 200;
+        await kv.set("community:trips", trips);
+
+        return c.json({ success: true, trip: published });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/community/trips/:tripId/like", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const tripId = c.req.param('tripId');
+        const trips = (await kv.get("community:trips")) || [];
+        const trip = trips.find((t: any) => t.id === tripId);
+        if (!trip) return c.json({ error: "Trip not found" }, 404);
+
+        const userLikes = (await kv.get(`user_likes:${user.id}`)) || [];
+        const alreadyLiked = userLikes.includes(tripId);
+
+        if (alreadyLiked) {
+            trip.likes = Math.max(0, (trip.likes || 0) - 1);
+            const idx = userLikes.indexOf(tripId);
+            if (idx !== -1) userLikes.splice(idx, 1);
+        } else {
+            trip.likes = (trip.likes || 0) + 1;
+            userLikes.push(tripId);
+        }
+
+        await kv.set("community:trips", trips);
+        await kv.set(`user_likes:${user.id}`, userLikes);
+
+        return c.json({ success: true, liked: !alreadyLiked, likes: trip.likes });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.delete("/make-server-3ab99f71/community/trips/:tripId", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const tripId = c.req.param('tripId');
+        const trips = (await kv.get("community:trips")) || [];
+        const idx = trips.findIndex((t: any) => t.id === tripId && t.authorId === user.id);
+        if (idx === -1) return c.json({ error: "Not found or not authorized" }, 404);
+
+        trips.splice(idx, 1);
+        await kv.set("community:trips", trips);
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// --- SOS BEACON ---
+app.get("/make-server-3ab99f71/sos", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const alert = await kv.get(`sos:${user.id}`);
+        return c.json(alert || { status: 'inactive' });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/sos", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const { lat, lng, emergencyContact, checkinInterval } = await c.req.json();
+
+        const alert = {
+            id: crypto.randomUUID(),
+            userId: user.id,
+            userName: user.user_metadata?.name || user.email?.split('@')[0] || 'Traveler',
+            status: 'active',
+            lat,
+            lng,
+            emergencyContact,
+            checkinInterval,
+            activatedAt: new Date().toISOString(),
+            lastCheckin: new Date().toISOString(),
+            locationHistory: [{ lat, lng, timestamp: new Date().toISOString() }],
+        };
+
+        await kv.set(`sos:${user.id}`, alert);
+
+        if (emergencyContact) {
+            const profile = (await kv.get(`profile:${user.id}`)) || {};
+            profile.emergencyContact = emergencyContact;
+            await kv.set(`profile:${user.id}`, profile);
+        }
+
+        return c.json({ success: true, alert });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/sos/checkin", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const { lat, lng } = await c.req.json();
+        const alert = await kv.get(`sos:${user.id}`);
+        if (!alert || alert.status !== 'active') return c.json({ error: "No active beacon" }, 404);
+
+        alert.lastCheckin = new Date().toISOString();
+        if (lat && lng) {
+            alert.lat = lat;
+            alert.lng = lng;
+            alert.locationHistory = alert.locationHistory || [];
+            alert.locationHistory.push({ lat, lng, timestamp: new Date().toISOString() });
+            if (alert.locationHistory.length > 100) alert.locationHistory.shift();
+        }
+
+        await kv.set(`sos:${user.id}`, alert);
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.delete("/make-server-3ab99f71/sos", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        await kv.set(`sos:${user.id}`, { status: 'inactive' });
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// --- MULTIPLAYER TRIP PLANNING ---
+app.get("/make-server-3ab99f71/trips/:tripId/collaborators", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const tripId = c.req.param('tripId');
+        const collabs = (await kv.get(`trip_collabs:${tripId}`)) || [];
+        return c.json(collabs);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/trips/:tripId/invite", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const tripId = c.req.param('tripId');
+        const { email, role } = await c.req.json();
+
+        const collabs = (await kv.get(`trip_collabs:${tripId}`)) || [];
+
+        if (collabs.length === 0) {
+            collabs.push({
+                userId: user.id,
+                email: user.email,
+                name: user.user_metadata?.name || user.email?.split('@')[0] || 'Owner',
+                role: 'owner',
+                joinedAt: new Date().toISOString(),
+            });
+        }
+
+        const exists = collabs.find((cl: any) => cl.email === email);
+        if (exists) return c.json({ error: "Already invited" }, 400);
+
+        const invite = {
+            id: crypto.randomUUID(),
+            tripId,
+            email,
+            role: role || 'editor',
+            invitedBy: user.id,
+            invitedByName: user.user_metadata?.name || user.email?.split('@')[0] || 'Traveler',
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+        };
+
+        const pendingInvites = (await kv.get(`invites:${email}`)) || [];
+        pendingInvites.push(invite);
+        await kv.set(`invites:${email}`, pendingInvites);
+
+        collabs.push({
+            email,
+            role: role || 'editor',
+            status: 'pending',
+            inviteId: invite.id,
+            joinedAt: new Date().toISOString(),
+        });
+        await kv.set(`trip_collabs:${tripId}`, collabs);
+
+        return c.json({ success: true, invite });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.get("/make-server-3ab99f71/invites", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const invites = (await kv.get(`invites:${user.email}`)) || [];
+        const pending = invites.filter((i: any) => i.status === 'pending');
+        return c.json(pending);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/invites/:inviteId/accept", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const inviteId = c.req.param('inviteId');
+        const invites = (await kv.get(`invites:${user.email}`)) || [];
+        const invite = invites.find((i: any) => i.id === inviteId);
+        if (!invite) return c.json({ error: "Invite not found" }, 404);
+
+        invite.status = 'accepted';
+        await kv.set(`invites:${user.email}`, invites);
+
+        const collabs = (await kv.get(`trip_collabs:${invite.tripId}`)) || [];
+        const collab = collabs.find((cl: any) => cl.inviteId === inviteId);
+        if (collab) {
+            collab.userId = user.id;
+            collab.name = user.user_metadata?.name || user.email?.split('@')[0] || 'Traveler';
+            collab.status = 'active';
+        }
+        await kv.set(`trip_collabs:${invite.tripId}`, collabs);
+
+        const sharedTrips = (await kv.get(`shared_trips:${user.id}`)) || [];
+        sharedTrips.push({ tripId: invite.tripId, ownerId: invite.invitedBy, role: invite.role });
+        await kv.set(`shared_trips:${user.id}`, sharedTrips);
+
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/invites/:inviteId/decline", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const inviteId = c.req.param('inviteId');
+        const invites = (await kv.get(`invites:${user.email}`)) || [];
+        const invite = invites.find((i: any) => i.id === inviteId);
+        if (!invite) return c.json({ error: "Invite not found" }, 404);
+
+        invite.status = 'declined';
+        await kv.set(`invites:${user.email}`, invites);
+
+        const collabs = (await kv.get(`trip_collabs:${invite.tripId}`)) || [];
+        const idx = collabs.findIndex((cl: any) => cl.inviteId === inviteId);
+        if (idx !== -1) collabs.splice(idx, 1);
+        await kv.set(`trip_collabs:${invite.tripId}`, collabs);
+
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.get("/make-server-3ab99f71/shared-trips", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const sharedRefs = (await kv.get(`shared_trips:${user.id}`)) || [];
+        const results: any[] = [];
+
+        for (const ref of sharedRefs) {
+            const ownerTrips = (await kv.get(`bookings:${ref.ownerId}`)) || [];
+            const trip = ownerTrips.find((t: any) => t.id === ref.tripId);
+            if (trip) {
+                results.push({ ...trip, role: ref.role, ownerId: ref.ownerId });
+            }
+        }
+
+        return c.json(results);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// --- CMS / ADMIN ---
+app.get("/make-server-3ab99f71/admin/stats", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const communityTrips = (await kv.get("community:trips")) || [];
+        const adminEmails = (await kv.get("admin:emails")) || ["admin@kendala.kz"];
+
+        if (!adminEmails.includes(user.email)) {
+            return c.json({ error: "Forbidden" }, 403);
+        }
+
+        return c.json({
+            communityTrips: communityTrips.length,
+            totalLikes: communityTrips.reduce((s: number, t: any) => s + (t.likes || 0), 0),
+            totalViews: communityTrips.reduce((s: number, t: any) => s + (t.views || 0), 0),
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.get("/make-server-3ab99f71/admin/community-trips", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const adminEmails = (await kv.get("admin:emails")) || ["admin@kendala.kz"];
+        if (!adminEmails.includes(user.email)) return c.json({ error: "Forbidden" }, 403);
+
+        const trips = (await kv.get("community:trips")) || [];
+        return c.json(trips);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.delete("/make-server-3ab99f71/admin/community-trips/:tripId", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const adminEmails = (await kv.get("admin:emails")) || ["admin@kendala.kz"];
+        if (!adminEmails.includes(user.email)) return c.json({ error: "Forbidden" }, 403);
+
+        const tripId = c.req.param('tripId');
+        const trips = (await kv.get("community:trips")) || [];
+        const filtered = trips.filter((t: any) => t.id !== tripId);
+        await kv.set("community:trips", filtered);
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.delete("/make-server-3ab99f71/admin/reviews/:type/:targetId/:reviewId", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const adminEmails = (await kv.get("admin:emails")) || ["admin@kendala.kz"];
+        if (!adminEmails.includes(user.email)) return c.json({ error: "Forbidden" }, 403);
+
+        const type = c.req.param('type');
+        const targetId = c.req.param('targetId');
+        const reviewId = c.req.param('reviewId');
+        const reviews = (await kv.get(`reviews:${type}:${targetId}`)) || [];
+        const filtered = reviews.filter((r: any) => r.id !== reviewId);
+        await kv.set(`reviews:${type}:${targetId}`, filtered);
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// --- USER-SUBMITTED PLACES ---
+app.get("/make-server-3ab99f71/user-places", async (c) => {
+    try {
+        const places = (await kv.get("user_places:all")) || [];
+        const approved = places.filter((p: any) => p.status === 'approved');
+        return c.json(approved);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.get("/make-server-3ab99f71/user-places/my", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    try {
+        const places = (await kv.get("user_places:all")) || [];
+        const myPlaces = places.filter((p: any) => p.authorId === user.id);
+        return c.json(myPlaces);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/user-places", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    try {
+        const placeData = await c.req.json();
+        const places = (await kv.get("user_places:all")) || [];
+        const newPlace = {
+            id: crypto.randomUUID(),
+            ...placeData,
+            authorId: user.id,
+            authorName: user.user_metadata?.name || user.email?.split('@')[0] || 'Traveler',
+            authorEmail: user.email,
+            status: 'pending',
+            verificationResult: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        };
+        places.unshift(newPlace);
+        if (places.length > 500) places.length = 500;
+        await kv.set("user_places:all", places);
+        return c.json({ success: true, place: newPlace });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.post("/make-server-3ab99f71/user-places/:placeId/verify", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    try {
+        const placeId = c.req.param('placeId');
+        const places = (await kv.get("user_places:all")) || [];
+        const idx = places.findIndex((p: any) => p.id === placeId);
+        if (idx === -1) return c.json({ error: "Place not found" }, 404);
+        const place = places[idx];
+        place.status = 'verifying';
+        place.updatedAt = new Date().toISOString();
+        await kv.set("user_places:all", places);
+
+        const apiKey = Deno.env.get("GEMINI_API_KEY");
+        if (!apiKey) {
+            place.status = 'pending';
+            place.verificationResult = { score: 0, verdict: 'unavailable', checks: [], suggestion: 'AI verification unavailable.' };
+            await kv.set("user_places:all", places);
+            return c.json({ error: "AI verification unavailable" }, 503);
+        }
+
+        const MODEL = "gemini-2.5-flash";
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+        const prompt = `You are a travel data verification AI for Kazakhstan. Analyze this user-submitted place listing for ACCURACY and LEGITIMACY.
+
+Place Data:
+- Name: ${place.name}
+- Type: ${place.type}
+- Region: ${place.region}
+- City/Settlement: ${place.city || 'Not provided'}
+- Coordinates: lat ${place.lat || 'Not provided'}, lng ${place.lng || 'Not provided'}
+- Description: ${place.description}
+- Category: ${place.category || 'Not provided'}
+
+Verify:
+1. Does this place actually exist in Kazakhstan?
+2. Are coordinates roughly correct?
+3. Is the description accurate?
+4. Is the category reasonable?
+5. Is the content appropriate (no spam/fake)?
+6. Is the region correct?
+
+Return JSON:
+{
+  "score": <number 0-100>,
+  "verdict": "<approved|needs_review|rejected>",
+  "confidence": "<high|medium|low>",
+  "checks": [
+    {"check": "existence", "passed": true/false, "note": "..."},
+    {"check": "coordinates", "passed": true/false, "note": "..."},
+    {"check": "description_accuracy", "passed": true/false, "note": "..."},
+    {"check": "category_match", "passed": true/false, "note": "..."},
+    {"check": "content_quality", "passed": true/false, "note": "..."},
+    {"check": "region_match", "passed": true/false, "note": "..."}
+  ],
+  "suggestion": "optional improvement suggestion"
+}`;
+
+        const response = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { response_mime_type: "application/json" }
+            })
+        });
+
+        if (!response.ok) {
+            if (response.status === 429) {
+                place.status = 'pending';
+                place.verificationResult = { score: 0, verdict: 'rate_limited', checks: [], suggestion: 'AI is resting. Try again later.' };
+                await kv.set("user_places:all", places);
+                return c.json({ success: false, verification: place.verificationResult });
+            }
+            throw new Error("Gemini API error");
+        }
+
+        const data = await response.json();
+        const result = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+        place.verificationResult = result;
+        place.status = result.verdict === 'approved' ? 'approved' : result.verdict === 'rejected' ? 'rejected' : 'needs_review';
+        place.updatedAt = new Date().toISOString();
+        await kv.set("user_places:all", places);
+        return c.json({ success: true, verification: result, status: place.status });
+    } catch (err: any) {
+        console.error("Verification error:", err);
+        return c.json({ error: err.message }, 500);
+    }
+});
+
+app.get("/make-server-3ab99f71/admin/user-places", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    try {
+        const adminEmails = (await kv.get("admin:emails")) || ["admin@kendala.kz"];
+        if (!adminEmails.includes(user.email)) return c.json({ error: "Forbidden" }, 403);
+        const places = (await kv.get("user_places:all")) || [];
+        return c.json(places);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.put("/make-server-3ab99f71/admin/user-places/:placeId", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    try {
+        const adminEmails = (await kv.get("admin:emails")) || ["admin@kendala.kz"];
+        if (!adminEmails.includes(user.email)) return c.json({ error: "Forbidden" }, 403);
+        const placeId = c.req.param('placeId');
+        const { status } = await c.req.json();
+        const places = (await kv.get("user_places:all")) || [];
+        const idx = places.findIndex((p: any) => p.id === placeId);
+        if (idx === -1) return c.json({ error: "Place not found" }, 404);
+        places[idx].status = status;
+        places[idx].updatedAt = new Date().toISOString();
+        places[idx].reviewedBy = user.email;
+        await kv.set("user_places:all", places);
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.delete("/make-server-3ab99f71/admin/user-places/:placeId", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    try {
+        const adminEmails = (await kv.get("admin:emails")) || ["admin@kendala.kz"];
+        if (!adminEmails.includes(user.email)) return c.json({ error: "Forbidden" }, 403);
+        const placeId = c.req.param('placeId');
+        const places = (await kv.get("user_places:all")) || [];
+        const filtered = places.filter((p: any) => p.id !== placeId);
+        await kv.set("user_places:all", filtered);
+        return c.json({ success: true });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// --- ADMIN: List all reviews for a given type (scans known targets) ---
+app.get("/make-server-3ab99f71/admin/reviews/:type", async (c) => {
+    const user = await getUser(c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    try {
+        const adminEmails = (await kv.get("admin:emails")) || ["admin@kendala.kz"];
+        if (!adminEmails.includes(user.email)) return c.json({ error: "Forbidden" }, 403);
+
+        const type = c.req.param('type');
+        // Get known target IDs for this review type
+        const knownTargets = (await kv.get(`review_targets:${type}`)) || [];
+        const allReviews: any[] = [];
+
+        for (const targetId of knownTargets) {
+            const reviews = (await kv.get(`reviews:${type}:${targetId}`)) || [];
+            for (const review of reviews) {
+                allReviews.push({ ...review, targetId, targetType: type });
+            }
+        }
+
+        return c.json(allReviews);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+Deno.serve({
+  onError: (err) => {
+    if (err.message && err.message.includes("connection closed before message completed")) {
+      return new Response(); // Ignore closed connections
+    }
+    console.error("Server error:", err);
+    return new Response("Internal server error", { status: 500 });
+  }
+}, app.fetch);

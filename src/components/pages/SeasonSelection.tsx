@@ -120,7 +120,6 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
             exit={{ opacity: 0, scale: 0.95, filter: 'brightness(0) blur(5px)' }}
             transition={{ duration: transitionDuration, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* Background Image - Cinematic Depth */}
             <div className="absolute inset-0 z-0">
                 <motion.div 
                     className="w-full h-full"
@@ -142,10 +141,8 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                     />
                 </motion.div>
                 
-                {/* Cinematic Overlays */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black opacity-90" />
                 
-                {/* Chromatic Aberration - Season Specific Color */}
                 <motion.div 
                     className="absolute inset-0 pointer-events-none mix-blend-screen opacity-10 blur-3xl"
                     style={{ background: `radial-gradient(circle at center, transparent 0%, ${currentSeason.mainColor} 100%)` }}
@@ -154,7 +151,6 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                 />
             </div>
 
-            {/* Environmental Particles */}
             <div className="absolute inset-0 z-10 pointer-events-none">
                 {[...Array(15)].map((_, i) => (
                     <motion.div
@@ -178,7 +174,6 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                 ))}
             </div>
 
-            {/* Content */}
             <div className="relative z-20 h-full flex flex-col justify-end pb-12 md:pb-24 px-6 md:px-24">
               
               <motion.div 
@@ -203,7 +198,6 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                         visible: { transition: { staggerChildren: staggerDelay, delayChildren: 0.2 } }
                     }}
                  >
-                     {/* Chapter Tag */}
                      <motion.div 
                         variants={{
                             hidden: { x: -10, opacity: 0 },
@@ -221,7 +215,6 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                          </div>
                      </motion.div>
 
-                     {/* Main Title - Extreme Impact - Only Montserrat */}
                      <div className="mb-6 md:mb-8 overflow-hidden">
                          <h1 className={`text-4xl sm:text-6xl md:text-9xl leading-[0.9] uppercase flex flex-wrap gap-x-4 md:gap-x-10 ${titleFont} font-black`}>
                             {seasonName.split('').map((char, i) => (
@@ -240,7 +233,6 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                          </h1>
                      </div>
 
-                     {/* Description */}
                      <motion.p 
                         variants={{
                             hidden: { opacity: 0, x: 10 },
@@ -251,7 +243,6 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                         {t(currentSeason.fullDescriptionKey)}
                      </motion.p>
                      
-                     {/* Interactive */}
                      <motion.div
                         variants={{
                             hidden: { opacity: 0, scale: 0.98 },
@@ -294,8 +285,6 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
   return (
     <div className="min-h-screen bg-black overflow-y-auto md:overflow-hidden relative no-scrollbar">
       
-      {/* Header removed for cinematic immersion */}
-
       <motion.div 
         className="flex flex-col md:flex-row h-screen"
         initial={{ opacity: 0, scale: 1.1 }}
@@ -318,11 +307,10 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                  setTimeout(() => onSeasonSelect(season.id), 800);
                }}
                animate={{ 
-                 flex: isHovered && window.innerWidth >= 768 ? 2 : 1,
+                 flex: isHovered && window.innerWidth >= 768 ? '2 1 0%' : '1 1 0%',
                }}
                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
              >
-                {/* Background Image with Shocking Zoom */}
                 <div 
                    className="absolute inset-0 transition-all duration-[1s] ease-out"
                 >
@@ -334,14 +322,12 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                      alt=""
                    />
                    
-                   {/* Color Wash Overlay */}
                    <div 
                         className="absolute inset-0 transition-opacity duration-500 opacity-60 group-hover:opacity-20 mix-blend-overlay" 
                         style={{ backgroundColor: season.mainColor }}
                    />
                 </div>
 
-                {/* Content - Immersive HUD Feel */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4 md:p-8 z-20">
                     
                     <motion.div 
@@ -390,14 +376,12 @@ export const SeasonSelection = ({ onSeasonSelect }: { onSeasonSelect: (season: '
                     </div>
                 </div>
 
-                {/* Glitch Overlay on Hover */}
                 <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-5 bg-white mix-blend-overlay" />
              </motion.div>
            );
         })}
       </motion.div>
 
-      {/* Grid Scanlines */}
       <div className="absolute inset-0 pointer-events-none z-40 opacity-[0.03] overflow-hidden">
           <div className="w-full h-full bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%]" />
       </div>

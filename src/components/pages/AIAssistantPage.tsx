@@ -3,22 +3,38 @@ import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { supabase } from '../../utils/supabase/client';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTrip } from '../../contexts/TripContext';
 import { ItineraryItem } from './plannerTypes';
 import { toast } from 'sonner@2.0.3';
+import { useAppNavigate } from '../../hooks/useAppNavigate';
 import { 
     Send, MapPin, Clock, ArrowRight, X, Plus, RefreshCw, 
     Mountain, Camera, Utensils, Droplet, Wind, Sun, ArrowUpRight, 
     Compass, Map as MapIcon, Package, FileText, CheckCircle, Zap, 
     ChevronRight, Layers, Activity, Search, Globe, Star, ArrowLeft,
     Tent, Moon, Sunrise, Sunset, Calendar, Shield, Info, CreditCard,
-    Briefcase, Navigation, Eye, Globe as Languages, Save, Play, Route
+    Briefcase, Navigation, Eye, Globe as Languages, Save, Play, Route,
+    MessageSquare, Trash2, PanelRightOpen, PanelRightClose, RotateCcw
 } from '../ui/icons';
 import { motion, AnimatePresence } from 'motion/react';
+import { PageTransition } from '../ui/PageTransition';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { ResponsiveImage } from '../ui/ResponsiveImage';
 import { SEASON_SELECTION_URLS } from '../../utils/imageUrls';
 import ReactMarkdown from 'react-markdown';
+import { usePremium } from '../../contexts/PremiumContext';
+import { AILimitBanner } from '../ui/PremiumGate';
+import { renderEnhancedTool } from './AIToolRenderers';
+import { KAZAKHSTAN_CITIES } from '../../data/kazakhstan-cities';
+
+// ── Real Kazakhstan knowledge base for AI context ──
+const LANG_NAMES: Record<string, string> = { en: 'English', ru: 'Russian', kz: 'Kazakh' };
+const buildKnowledgeBase = (lang: string) => {
+  const l = (lang === 'kz' ? 'kz' : lang === 'ru' ? 'ru' : 'en') as 'en' | 'ru' | 'kz';
+  const cities = KAZAKHSTAN_CITIES.map(c => `${c.name[l] || c.name.en} (${c.region[l] || c.region.en}, tier${c.tier}${c.population ? `, ~${(c.population/1000).toFixed(0)}k` : ''}, ${c.tags.join('/')})`).join('; ');
+  return `REAL KAZAKHSTAN DATA — use this to give accurate, specific answers:\nCities: ${cities}\n\nREAL HOTELS:\nAlmaty: Ritz-Carlton, InterContinental, Rahat Palace, Rixos Almaty, Holiday Inn, Grand Tien Shan, Dostyk Hotel (~$40-60), Ramada Almaty (~$60-90), Hostel Almaty (~$10-15)\nAstana: St. Regis, Hilton, Marriott, DoubleTree by Hilton, Radisson, Rixos President, Grand Park Esil (~$50-80)\nShymkent: Rixos Khadisha, Hyatt Regency, Grand Hotel (~$30-50)\nAktau: Rixos Water World, Renaissance Aktau (~$80-120)\nTurkistan: Caravansarai, Rixos Turkistan (~$70-100)\nBurabay: Rixos Borovoe (~$100-200), local guesthouses (~$15-30)\nKaraganda: Cosmonaut Hotel, Maxi Park (~$30-50)\nOskemen: Shiny River, Dedeman (~$40-70)\n\nATTRACTIONS: Medeu, Shymbulak, Big Almaty Lake, Charyn Canyon, Kolsay Lakes, Kaindy Lake, Bayterek Tower, Khan Shatyr, EXPO Nur Alem, Mausoleum of Khoja Ahmed Yasawi, Baikonur Cosmodrome, Altyn-Emel, Singing Dunes, Tamgaly (UNESCO), Burabay NP, Aksu-Zhabagly Reserve\n\nBAZAARS: Green Bazaar (Almaty), Barakholka (Almaty), Central Bazaar (Shymkent)\n\nTRANSPORT: Almaty-Astana flights ~$50-80 (Air Astana, FlyArystan), train ~$15-30 (14-18h). FlyArystan budget domestic. Yandex Go/inDrive for taxis. Intercity buses very cheap.`;
+};
 
 const SafeMarkdown = ({ children, components }: { children: string; components?: any; [key: string]: any }) => {
   return <ReactMarkdown components={components}>{children}</ReactMarkdown>;
@@ -50,76 +66,167 @@ interface ToolDef {
   promptTemplate: string;
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const PERIOD_IMAGES = {
+    morning: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/spring.jpg',
+    afternoon: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/summer.jpg',
+    evening: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/autumn.jpg',
+};
+const PERIOD_ICONS: Record<string, React.ElementType> = { morning: Sunrise, afternoon: Sun, evening: Sunset };
+const PERIOD_COLORS: Record<string, string> = { morning: '#f59e0b', afternoon: '#d97706', evening: '#7c3aed' };
+
 const UniqueThinkingAnimation = ({ color, label }: { color: string; label?: string }) => {
     return (
-        <div className="flex flex-col items-center justify-center gap-10 py-24 w-full">
-            <div className="relative w-24 h-24 flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center gap-8 py-20 w-full">
+            <div className="relative w-32 h-32 flex items-center justify-center">
                 <motion.div
-                    animate={{ 
-                        scale: [0.8, 1.5],
-                        opacity: [0.5, 0],
-                        borderWidth: ["4px", "0px"]
-                    }}
-                    transition={{ 
-                        duration: 1.2, 
-                        repeat: Infinity, 
-                        ease: "easeOut" 
-                    }}
-                    className="absolute inset-0 rounded-none border-2"
+                    animate={{ scale: [1, 1.6, 1], opacity: [0.3, 0, 0.3] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                    className="absolute inset-0 rounded-full border-2"
                     style={{ borderColor: color }}
                 />
-                
                 <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{ 
-                        duration: 1.5, 
-                        repeat: Infinity, 
-                        ease: [0.8, 0, 0.2, 1] // Custom bezier for "snap" effect
-                    }}
-                    className="absolute inset-2 rounded-none border-t-4 border-r-2 border-transparent"
-                    style={{ borderTopColor: color, borderRightColor: `${color}40` }}
+                    transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                    className="absolute inset-3 rounded-full border border-dashed"
+                    style={{ borderColor: `${color}40` }}
+                >
+                    <motion.div
+                        className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full"
+                        style={{ backgroundColor: color }}
+                        animate={{ scale: [1, 1.3, 1] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                </motion.div>
+                <motion.div
+                    animate={{ rotate: -360 }}
+                    transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+                    className="absolute inset-6 rounded-full"
+                    style={{ border: '3px solid transparent', borderTopColor: color, borderRightColor: `${color}60` }}
                 />
-
-                <motion.div 
-                    animate={{ scale: [1, 0.8, 1] }}
-                    transition={{ duration: 0.3, repeat: Infinity, repeatDelay: 1.2 }}
-                    className="w-3 h-3 rounded-none"
-                    style={{ backgroundColor: color }}
+                <motion.div
+                    animate={{ scale: [0.8, 1.1, 0.8], opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                    className="w-8 h-8 rounded-full shadow-lg"
+                    style={{ backgroundColor: color, boxShadow: `0 0 30px ${color}40` }}
                 />
+                {[0, 1, 2].map(i => (
+                    <motion.div
+                        key={i}
+                        className="absolute w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: `${color}80` }}
+                        animate={{
+                            x: [0, Math.cos(i * 2.1) * 25, 0],
+                            y: [0, Math.sin(i * 2.1) * 25, 0],
+                            opacity: [0, 0.8, 0],
+                            scale: [0, 1, 0],
+                        }}
+                        transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.8, ease: 'easeInOut' }}
+                    />
+                ))}
             </div>
-            
-            <div className="relative overflow-hidden">
-                <motion.p 
-                    animate={{ opacity: [0.4, 1, 0.4] }}
-                    transition={{ duration: 2, repeat: Infinity }}
+            <div className="flex flex-col items-center gap-3">
+                <motion.div className="flex items-center gap-2">
+                    {[0, 1, 2, 3].map(i => (
+                        <motion.div
+                            key={i}
+                            className="w-1 h-1 rounded-full"
+                            style={{ backgroundColor: color }}
+                            animate={{ scale: [0, 1.5, 0], opacity: [0, 1, 0] }}
+                            transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3, ease: 'easeInOut' }}
+                        />
+                    ))}
+                </motion.div>
+                <motion.p
+                    animate={{ opacity: [0.3, 0.8, 0.3] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                     className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400"
                 >
-                    {label || 'THINKING'}
+                    {label || 'CRAFTING YOUR JOURNEY'}
                 </motion.p>
             </div>
         </div>
     );
 };
 
-const NaturalCard = ({ children, color, delay = 0 }: { children: React.ReactNode, color: string, delay?: number }) => (
+const NaturalCard = ({ children, color, delay = 0, className: extraClass = '' }: { children: React.ReactNode, color: string, delay?: number, className?: string }) => (
     <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
-        className="relative p-6 md:p-10 rounded-none bg-white/60 backdrop-blur-2xl border border-white shadow-[0_20px_50px_rgba(0,0,0,0.03)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.06)] transition-all overflow-hidden group w-full"
+        className={`relative p-6 md:p-10 bg-white/70 backdrop-blur-2xl border border-white/80 shadow-[0_20px_50px_rgba(0,0,0,0.04)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.08)] transition-all duration-500 overflow-hidden group w-full ${extraClass}`}
     >
-        <div className="absolute -top-24 -right-24 w-48 h-48 rounded-none blur-3xl opacity-5 transition-transform group-hover:scale-150" style={{ backgroundColor: color }} />
+        <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl opacity-[0.07] transition-transform duration-700 group-hover:scale-150" style={{ backgroundColor: color }} />
+        <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full blur-3xl opacity-[0.04] transition-transform duration-700 group-hover:scale-125" style={{ backgroundColor: color }} />
         <div className="relative z-10 w-full min-w-0">{children}</div>
     </motion.div>
 );
 
-export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
+const TypewriterText = ({ text, onComplete }: { text: string; onComplete?: () => void }) => {
+    const [displayedText, setDisplayedText] = useState('');
+    const prevTextRef = useRef('');
+
+    useEffect(() => {
+        // If text hasn't changed, do nothing
+        if (text === prevTextRef.current && displayedText === text) return;
+        
+        let i = 0;
+        setDisplayedText('');
+        prevTextRef.current = text;
+        
+        const interval = setInterval(() => {
+            setDisplayedText(text.slice(0, i + 1));
+            i++;
+            if (i >= text.length) {
+                clearInterval(interval);
+                onComplete?.();
+            }
+        }, 10); // typing speed
+
+        return () => clearInterval(interval);
+    }, [text]);
+
+    return (
+        <SafeMarkdown 
+            components={{
+                p: ({node, ...props}) => <p {...props} className="mb-4 last:mb-0 leading-relaxed" />,
+                h1: ({node, ...props}) => <h1 {...props} className="text-3xl font-black mb-4 mt-6 uppercase tracking-tight" />,
+                h2: ({node, ...props}) => <h2 {...props} className="text-2xl font-black mb-3 mt-5 uppercase tracking-tight" />,
+                h3: ({node, ...props}) => <h3 {...props} className="text-xl font-black mb-2 mt-4 uppercase tracking-tight" />,
+                ul: ({node, ...props}) => <ul {...props} className="list-disc pl-6 mb-4 space-y-2 marker:text-zinc-400 opacity-90" />,
+                ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-6 mb-4 space-y-2 marker:text-zinc-400 font-bold opacity-90" />,
+                li: ({node, ...props}) => <li {...props} className="pl-2" />,
+                strong: ({node, ...props}) => <strong {...props} className="font-black text-zinc-900" />,
+                a: ({node, ...props}) => <a {...props} className="underline decoration-2 underline-offset-4 decoration-zinc-300 hover:decoration-zinc-800 transition-all text-zinc-900 font-bold" />,
+                blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-4 border-zinc-200 pl-6 py-2 my-6 italic text-zinc-500 bg-zinc-50/50" />,
+                table: ({node, ...props}) => <div className="overflow-x-auto my-6 rounded-none border border-zinc-100 shadow-sm"><table {...props} className="w-full text-left text-sm md:text-base border-collapse" /></div>,
+                thead: ({node, ...props}) => <thead {...props} className="bg-zinc-50 border-b border-zinc-100" />,
+                th: ({node, ...props}) => <th {...props} className="px-6 py-4 font-black uppercase tracking-wider text-zinc-500 text-xs md:text-xs" />,
+                td: ({node, ...props}) => <td {...props} className="px-6 py-4 border-b border-zinc-50 text-zinc-700 font-bold" />,
+            }}
+        >
+            {displayedText}
+        </SafeMarkdown>
+    );
+};
+
+export const AIAssistantPage = () => {
+  const onNavigate = useAppNavigate();
   const { theme, season } = useSeason();
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const { 
     setItinerary, setTripTitle, setDestination, setDayCount,
     createNewTrip, saveCurrentTrip, itinerary: currentItinerary
   } = useTrip();
+  const { incrementAIMessages, canUseFeature } = usePremium();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolDef | null>(null);
@@ -129,10 +236,115 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
   const [isSaving, setIsSaving] = useState(false);
   const [mobileView, setMobileView] = useState<'chat' | 'tools'>('chat');
   
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
+    try {
+      const saved = localStorage.getItem('kendala_chat_sessions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.map((s: any) => ({
+          ...s,
+          createdAt: new Date(s.createdAt),
+          updatedAt: new Date(s.updatedAt),
+          messages: s.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
+        }));
+      }
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    if (user) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.access_token) {
+          fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/ai/sessions`, {
+            headers: { 
+              'Authorization': `Bearer ${publicAnonKey}`,
+              'x-user-token': session.access_token 
+            }
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (Array.isArray(data) && data.length > 0) {
+              setChatSessions(data.map((s: any) => ({
+                ...s,
+                createdAt: new Date(s.createdAt),
+                updatedAt: new Date(s.updatedAt),
+                messages: s.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
+              })));
+            }
+          })
+          .catch(console.error);
+        }
+      });
+    }
+  }, [user]);
+
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
 
   const displayFont = 'font-sans';
+
+  // Persist chat sessions
+  useEffect(() => {
+    try {
+      localStorage.setItem('kendala_chat_sessions', JSON.stringify(chatSessions));
+    } catch {}
+    
+    if (user && chatSessions.length > 0) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.access_token) {
+          fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/ai/sessions`, {
+            method: 'POST',
+            headers: { 
+              'Authorization': `Bearer ${publicAnonKey}`,
+              'x-user-token': session.access_token,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(chatSessions)
+          }).catch(console.error);
+        }
+      });
+    }
+  }, [chatSessions, user]);
+
+  // Auto-save current chat to session (save whenever messages change, including first message)
+  useEffect(() => {
+    if (!activeSessionId || messages.length === 0) return;
+    setChatSessions(prev => prev.map(s => 
+      s.id === activeSessionId 
+        ? { ...s, messages, updatedAt: new Date(), title: (() => { const u = messages.find(m => m.sender === 'user'); return u ? u.text.slice(0, 50) + (u.text.length > 50 ? '...' : '') : s.title || 'New Conversation'; })() }
+        : s
+    ));
+  }, [messages, activeSessionId]);
+
+  const startNewChat = useCallback(() => {
+    const newId = crypto.randomUUID();
+    const initMsg: Message = { id: 'init-1', text: t('ai_guide_desc'), sender: 'ai', timestamp: new Date() };
+    const newSession: ChatSession = { id: newId, title: 'New Conversation', messages: [initMsg], createdAt: new Date(), updatedAt: new Date() };
+    setChatSessions(prev => [newSession, ...prev]);
+    setActiveSessionId(newId);
+    setMessages([initMsg]);
+    setIsHistoryOpen(false);
+  }, [t]);
+
+  const loadSession = useCallback((session: ChatSession) => {
+    setActiveSessionId(session.id);
+    setMessages(session.messages);
+    setIsHistoryOpen(false);
+  }, []);
+
+  const deleteSession = useCallback((id: string) => {
+    setChatSessions(prev => prev.filter(s => s.id !== id));
+    if (activeSessionId === id) {
+      setActiveSessionId(null);
+      setMessages([{ id: 'init-1', text: t('ai_guide_desc'), sender: 'ai', timestamp: new Date() }]);
+    }
+  }, [activeSessionId, t]);
 
   const saveConstructorToTrip = useCallback(async (data: any, andFly?: boolean) => {
     if (!data?.itinerary) return;
@@ -145,7 +357,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
       setDestination(dest);
       
       const newItems: ItineraryItem[] = [];
-      const timeMap: Record<string, string> = { morning: '09:00', afternoon: '14:00', evening: '19:00' };
+      const defaultTimeMap: Record<string, string> = { morning: '09:00', afternoon: '14:00', evening: '19:00' };
       
       data.itinerary.forEach((day: any, idx: number) => {
         const dayNum = day.day || idx + 1;
@@ -157,15 +369,18 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
             const lng = parseFloat(day[`${period}_lng`]);
             const hasCoords = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
             const coordTag = hasCoords ? ` [coords: ${lat}, ${lng}]` : '';
+            const periodTime = day[`${period}_time`]?.split('-')[0] || defaultTimeMap[period];
+            const periodCostStr = day[`${period}_cost`] || '';
+            const periodCost = parseInt(String(periodCostStr).replace(/[^0-9]/g, '')) || 0;
             newItems.push({
               id: crypto.randomUUID(),
               day: dayNum,
-              time: timeMap[period],
+              time: periodTime,
               activity: day.title ? `${day.title} — ${period.charAt(0).toUpperCase() + period.slice(1)}` : `Day ${dayNum} ${period.charAt(0).toUpperCase() + period.slice(1)}`,
               type: 'activity',
-              cost: 0,
+              cost: periodCost,
               location: specificLocation,
-              notes: `${day[period]}${coordTag}`
+              notes: `${day[period]}${day[`${period}_category`] ? ` [${day[`${period}_category`]}]` : ''}${periodCostStr ? ` · ${periodCostStr}` : ''}${coordTag}`
             });
           }
         });
@@ -198,6 +413,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
     const lng = parseFloat(gem.lng);
     const hasCoords = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
     const coordTag = hasCoords ? ` [coords: ${lat}, ${lng}]` : '';
+    const gemImage = GEM_FALLBACK_IMAGES[currentItinerary.length % GEM_FALLBACK_IMAGES.length];
     const newItem: ItineraryItem = {
       id: crypto.randomUUID(),
       day: Math.max(...currentItinerary.map(i => i.day), 1),
@@ -206,7 +422,8 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
       type: 'activity',
       cost: 0,
       location: locationStr,
-      notes: `${gem.why_special || ''} ${gem.directions || ''}${coordTag}`.trim()
+      notes: `${gem.why_special || ''} ${gem.directions || ''}${coordTag}`.trim(),
+      image: gemImage
     };
     setItinerary(prev => [...prev, newItem]);
     toast.success(t('ai_gem_added'));
@@ -222,6 +439,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
       setTripTitle(data.path_name || `${start} → ${end}`);
       setDestination(`${start} - ${end}`);
       
+      const horizonImages = GEM_FALLBACK_IMAGES;
       const newItems: ItineraryItem[] = data.segments.map((seg: any, idx: number) => {
         const lat = parseFloat(seg.lat);
         const lng = parseFloat(seg.lng);
@@ -235,7 +453,8 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
           type: 'travel' as const,
           cost: 0,
           location: seg.milestone,
-          notes: `${seg.terrain} · ${seg.distance}${seg.notes ? ' — ' + seg.notes : ''}${coordTag}`
+          notes: `${seg.terrain} · ${seg.distance}${seg.notes ? ' — ' + seg.notes : ''}${coordTag}`,
+          image: horizonImages[idx % horizonImages.length]
         };
       });
 
@@ -263,6 +482,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
       setTripTitle(`${dest} — ${data.total_estimate}`);
       setDestination(dest);
       
+      const budgetImages = GEM_FALLBACK_IMAGES;
       const newItems: ItineraryItem[] = data.breakdown.map((item: any, idx: number) => {
         const lat = parseFloat(item.lat);
         const lng = parseFloat(item.lng);
@@ -276,7 +496,8 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
           type: 'activity' as const,
           cost: parseInt(String(item.cost).replace(/[^0-9]/g, '')) || 0,
           location: item.example_place || dest,
-          notes: `${item.description || ''}${coordTag}`
+          notes: `${item.description || ''}${coordTag}`,
+          image: budgetImages[idx % budgetImages.length]
         };
       });
 
@@ -323,18 +544,18 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
   const currentVisual = season ? SEASONAL_VISUALS[season] : SEASONAL_VISUALS.summer;
 
   const GEM_FALLBACK_IMAGES = [
-    'https://images.unsplash.com/photo-1752503256243-2edf964c00d0',
-    'https://images.unsplash.com/photo-1768363413701-7e84a071d6ec',
-    'https://images.unsplash.com/photo-1731157414702-a3ebce2960ec',
-    'https://images.unsplash.com/photo-1757017634529-3cf08583b4b0',
-    'https://images.unsplash.com/photo-1747866695935-fa6de1aa7d36',
-    'https://images.unsplash.com/photo-1767347838163-068d51573990',
-    'https://images.unsplash.com/photo-1627842822558-c1f15aef9838',
-    'https://images.unsplash.com/photo-1683199837323-ebdc3a4e7eeb',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/kazygurt.jpg',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/lake_balkhash.jpg',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/spring.jpg',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/summer.jpg',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/autumn.jpg',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/winter.jpg',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/turkestan.jpg',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/aisha_bibi.jpg',
   ];
 
   const tools: ToolDef[] = useMemo(() => [
-      { id: 'constructor', label: t('tool_constructor_label'), icon: MapIcon, tag: 'PLAN', description: t('tool_constructor_desc'), fields: [ { id: 'destination', label: t('field_destination'), placeholder: t('ph_destination'), type: 'text' }, { id: 'duration', label: t('field_duration'), placeholder: t('ph_duration'), type: 'text' }, { id: 'budget', label: t('field_budget'), placeholder: t('ph_budget'), type: 'select', options: [ { label: t('opt_budget'), value: 'Budget' }, { label: t('opt_moderate'), value: 'Moderate' }, { label: t('opt_luxury'), value: 'Luxury' }, { label: t('opt_nomadic'), value: 'Nomadic' } ] }, { id: 'interests', label: t('field_interests'), placeholder: t('ph_interests'), type: 'text' } ], promptTemplate: "Create a detailed {{duration}} itinerary for {{destination}} focusing on {{interests}} with a {{budget}} budget. Provide extremely detailed morning, afternoon, and evening activities." },
+      { id: 'constructor', label: t('tool_constructor_label'), icon: MapIcon, tag: 'PLAN', description: t('tool_constructor_desc'), fields: [ { id: 'destination', label: t('field_destination'), placeholder: t('ph_destination'), type: 'text' }, { id: 'duration', label: t('field_duration'), placeholder: t('ph_duration'), type: 'text' }, { id: 'budget', label: t('field_budget'), placeholder: t('ph_budget'), type: 'select', options: [ { label: t('opt_budget'), value: 'Budget ($30-50/day)' }, { label: t('opt_moderate'), value: 'Moderate ($50-120/day)' }, { label: t('opt_luxury'), value: 'Luxury ($150-300/day)' }, { label: t('opt_nomadic'), value: 'Nomadic (minimal, nature stays)' } ] }, { id: 'interests', label: t('field_interests'), placeholder: t('ph_interests'), type: 'text' }, { id: 'style', label: 'Travel Style', placeholder: 'Solo / Couple / Family / Group', type: 'select', options: [ { label: 'Solo Explorer', value: 'Solo traveler' }, { label: 'Romantic Couple', value: 'Couple' }, { label: 'Family with Kids', value: 'Family with children' }, { label: 'Friend Group', value: 'Group of friends' } ] } ], promptTemplate: "Create a detailed {{duration}} itinerary for {{destination}} focusing on {{interests}} with a {{budget}} budget for a {{style}}. Provide extremely detailed, immersive morning, afternoon, and evening activities with specific real places, costs, timings, and transport tips." },
       { id: 'hidden_gems', label: t('tool_hidden_gems_label'), icon: Star, tag: 'DISCOVER', description: t('tool_hidden_gems_desc'), fields: [ { id: 'location', label: t('field_location'), placeholder: t('ph_location'), type: 'text' }, { id: 'type', label: t('field_type'), placeholder: t('ph_type'), type: 'select', options: [ { label: t('opt_nature'), value: 'Nature' }, { label: t('opt_culture'), value: 'Culture' }, { label: t('opt_food'), value: 'Food' } ] } ], promptTemplate: "Reveal hidden gems in {{location}} of type {{type}}. Include detailed history and local legends." },
       { id: 'translator', label: t('tool_translator_label'), icon: Globe, tag: 'LANG', description: t('tool_translator_desc'), fields: [ { id: 'phrase', label: t('field_phrase'), placeholder: t('ph_phrase'), type: 'text' }, { id: 'context', label: t('field_context'), placeholder: t('ph_context'), type: 'text' } ], promptTemplate: "Translate '{{phrase}}' for context: {{context}}. Provide deep cultural context and usage tips." },
       { id: 'horizon', label: t('tool_horizon_label'), icon: Compass, tag: 'PATH', description: t('tool_horizon_desc'), fields: [ { id: 'start_point', label: t('field_start_point'), placeholder: t('ph_start_point'), type: 'text' }, { id: 'end_point', label: t('field_end_point'), placeholder: t('ph_end_point'), type: 'text' } ], promptTemplate: "Analyze the path from {{start_point}} to {{end_point}}. Break it into detailed segments with terrain info." },
@@ -361,36 +582,64 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
   const handleSend = async (manualText?: string) => {
     const text = manualText || input;
     if (!text.trim()) return;
+    if (!incrementAIMessages()) {
+      toast.error(t('ai_limit_reached') || 'Daily limit reached. Upgrade to Nomad for unlimited AI.');
+      return;
+    }
+    // Auto-create session on first user message
+    if (!activeSessionId) {
+      const newId = crypto.randomUUID();
+      const initMsg = messages.length > 0 ? messages : [{ id: 'init-1', text: t('ai_guide_desc'), sender: 'ai' as const, timestamp: new Date() }];
+      const newSession: ChatSession = { id: newId, title: text.slice(0, 50), messages: initMsg, createdAt: new Date(), updatedAt: new Date() };
+      setChatSessions(prev => [newSession, ...prev]);
+      setActiveSessionId(newId);
+    }
     setMessages(prev => [...prev, { id: crypto.randomUUID(), text, sender: 'user', timestamp: new Date() }]);
     setInput('');
     setIsTyping(true);
     try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token || publicAnonKey;
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/ai/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}`, 'x-user-token': token },
-            body: JSON.stringify({ message: text + ` (Tone: Laconic, strict, concise. Max 2 sentences unless listing. Focus on Kazakhstan. Language: ${language}. Season: ${season})` })
-        });
-        const data = await response.json();
-        setMessages(prev => [...prev, { id: crypto.randomUUID(), text: data.reply || "Connection lost.", sender: 'ai', timestamp: new Date() }]);
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/ai/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}`, 'x-user-token': token },
+          body: JSON.stringify({ message: `[SYSTEM: You are Kendala AI, a friendly and knowledgeable travel assistant for Kazakhstan. CRITICAL: You MUST reply ONLY in ${LANG_NAMES[language] || 'English'} — every word of your response must be in ${LANG_NAMES[language] || 'English'}. Be casual, warm, and helpful like a local friend who knows everything about Kazakhstan. Give specific real recommendations with real place names, real hotel names, real prices. Never use overly formal or jargon language. Current season context: ${season}.\n\n${buildKnowledgeBase(language)}]\n\nUser question: ${text}` })
+      });
+        if (!response.ok) {
+          const statusMsg = response.status === 503 
+            ? 'The AI service is temporarily unavailable. Please try again in a moment.'
+            : response.status === 429
+            ? 'Too many requests. Please wait a moment and try again.'
+            : `Service error (${response.status}). Please try again.`;
+          setMessages(prev => [...prev, { id: crypto.randomUUID(), text: statusMsg, sender: 'ai', timestamp: new Date() }]);
+          return;
+        }
+        const data = await response.json().catch(() => ({ reply: 'Could not parse response. Please try again.' }));
+        setMessages(prev => [...prev, { id: crypto.randomUUID(), text: data.reply || "No response received. Please try again.", sender: 'ai', timestamp: new Date() }]);
     } catch (e) {
-        setMessages(prev => [...prev, { id: crypto.randomUUID(), text: "Error syncing.", sender: 'ai', timestamp: new Date() }]);
+        setMessages(prev => [...prev, { id: crypto.randomUUID(), text: "Network error. Check your connection and try again.", sender: 'ai', timestamp: new Date() }]);
     } finally {
         setIsTyping(false);
     }
   };
 
+  const PREMIUM_TOOL_MAP: Record<string, string> = { constructor: 'aiAutoTrip', hidden_gems: 'hiddenGemsAccess' };
+
   const executeTool = async () => {
     if (!activeTool) return;
+    const premiumFeature = PREMIUM_TOOL_MAP[activeTool.id];
+    if (premiumFeature && !canUseFeature(premiumFeature as any)) {
+      toast.error(t('premium_required') || 'This is a Nomad feature. Upgrade to unlock.');
+      return;
+    }
     if (activeTool.fields.some(f => !toolValues[f.id])) return;
     setIsToolLoading(true);
     setToolResult(null);
     let fullPrompt = activeTool.promptTemplate;
     Object.entries(toolValues).forEach(([key, value]) => { fullPrompt = fullPrompt.replace(`{{${key}}}`, value); });
     
-    let instructions = `\n\nIMPORTANT: Answer in ${language}. Use nomadic terminology. You MUST return ONLY valid JSON — no markdown, no backticks, no extra text before or after. Schema: `;
-    if (activeTool.id === 'constructor') instructions += `{ "trip_title": "string", "overview": "string", "itinerary": [{ "day": number, "title": "string", "morning": "detailed activity description", "morning_location": "specific place or landmark name", "morning_lat": number, "morning_lng": number, "afternoon": "detailed activity description", "afternoon_location": "specific place or landmark name", "afternoon_lat": number, "afternoon_lng": number, "evening": "detailed activity description", "evening_location": "specific place or landmark name", "evening_lat": number, "evening_lng": number }], "tips": ["string"] }. CRITICAL RULES: 1) Each morning_location, afternoon_location, evening_location MUST be a specific, different, real named place (e.g. "Medeu Ice Rink", "Kok-Tobe Hill", "Green Bazaar") — NEVER a generic city name. 2) morning_lat/morning_lng etc. MUST be real GPS decimal coordinates for that exact place (e.g. 43.1567, 77.0572). 3) Every single activity MUST have its own unique lat/lng — no two activities should share the same coordinates.`;
+    let instructions = `\n\n${buildKnowledgeBase(language)}\n\nIMPORTANT: Answer ONLY in ${LANG_NAMES[language] || 'English'}. Use real Kazakhstan place names, hotels, and prices from the data above. Be specific and practical. You MUST return ONLY valid JSON — no markdown, no backticks, no extra text before or after. Schema: `;
+    if (activeTool.id === 'constructor') instructions += `{ "trip_title": "string", "overview": "string (2-3 poetic sentences)", "total_estimated_cost": "string like $500-800 USD", "best_season": "string", "difficulty": "Easy|Moderate|Challenging|Expert", "highlights": ["string (3-5 key highlights of this trip)"], "itinerary": [{ "day": number, "title": "string (creative day theme name)", "morning": "detailed activity description (3+ sentences with sensory details)", "morning_location": "specific real place or landmark name", "morning_time": "HH:MM-HH:MM", "morning_cost": "$XX or Free", "morning_category": "Culture|Nature|Food|Adventure|Relaxation|Shopping", "morning_lat": number, "morning_lng": number, "afternoon": "detailed activity description (3+ sentences)", "afternoon_location": "specific real place or landmark name", "afternoon_time": "HH:MM-HH:MM", "afternoon_cost": "$XX or Free", "afternoon_category": "Culture|Nature|Food|Adventure|Relaxation|Shopping", "afternoon_lat": number, "afternoon_lng": number, "evening": "detailed activity description (3+ sentences)", "evening_location": "specific real place or landmark name", "evening_time": "HH:MM-HH:MM", "evening_cost": "$XX or Free", "evening_category": "Culture|Nature|Food|Adventure|Relaxation|Shopping", "evening_lat": number, "evening_lng": number, "accommodation": "specific hotel/hostel/guesthouse name", "accommodation_cost": "$XX/night", "day_total": "$XXX", "transport_tip": "how to get around this day" }], "tips": ["string"], "packing_essentials": ["string (5 items specific to this trip)"] }. CRITICAL RULES: 1) Each morning_location, afternoon_location, evening_location MUST be a specific, different, real named place (e.g. "Medeu Ice Rink", "Kok-Tobe Hill", "Green Bazaar") — NEVER a generic city name. 2) All lat/lng MUST be real GPS decimal coordinates for that exact place. 3) Every single activity MUST have its own unique lat/lng. 4) Costs must be realistic in USD. 5) Times must be realistic and not overlap. 6) Descriptions must be rich and immersive. 7) Do NOT use any emojis anywhere in the response.`;
     else if (activeTool.id === 'hidden_gems') instructions += `{ "region": "string", "gems": [{ "name": "string", "lat": number, "lng": number, "why_special": "string", "directions": "string", "nearest_landmark": "specific nearby landmark name" }], "local_legend": "string" }. CRITICAL: lat/lng MUST be real GPS decimal coordinates for the exact gem location. Each gem MUST have unique coordinates.`;
     else if (activeTool.id === 'translator') instructions += `{ "original": "string", "translation": "string", "pronunciation": "string", "usage_tips": ["string"], "cultural_context": "string" }`;
     else if (activeTool.id === 'horizon') instructions += `{ "path_name": "string", "segments": [{ "milestone": "specific named city, town, or landmark", "lat": number, "lng": number, "distance": "string", "terrain": "string", "notes": "string" }], "resting_spots": ["string"], "safety_warning": "string" }. CRITICAL: each milestone MUST be a different specific named place with real GPS decimal lat/lng coordinates.`;
@@ -411,7 +660,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
             setIsToolLoading(false);
             return;
         }
-        const data = await response.json();
+        const data = await response.json().catch(() => ({ error: 'Invalid response' }));
         if (data.error) {
             console.error('Tool API returned error:', data.error);
             setToolResult(`Error: ${data.error}`);
@@ -445,94 +694,221 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
           return <div className="prose prose-lg max-w-none text-zinc-800 font-bold leading-relaxed"><SafeMarkdown>{toolResult}</SafeMarkdown></div>;
       }
           
-          if (activeTool?.id === 'constructor') return (
-              <div className="space-y-12 max-w-6xl mx-auto">
-                    <div className="text-center space-y-6 mb-20 px-4">
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-20 h-20 md:w-24 md:h-24 bg-white shadow-2xl rounded-none flex items-center justify-center mx-auto mb-8 border shrink-0" style={{ color: currentVisual.accent }}>
-                        <MapIcon className="w-10 h-10 md:w-12 md:h-12" />
-                      </motion.div>
-                      <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-zinc-800 leading-[0.9]">{data.trip_title}</h3>
-                      <p className="text-xl md:text-2xl font-bold text-zinc-400 italic max-w-3xl mx-auto line-clamp-3 md:line-clamp-none">"{data.overview}"</p>
+          if (activeTool?.id === 'constructor') {
+              const CAT_COLORS: Record<string, string> = { Culture: '#8b5cf6', Nature: '#10b981', Food: '#f59e0b', Adventure: '#ef4444', Relaxation: '#06b6d4', Shopping: '#ec4899' };
+              const totalDays = data.itinerary?.length || 0;
+              return (
+              <div className="space-y-8 max-w-6xl mx-auto">
+                    <div className="relative overflow-hidden mb-4">
+                      <div className="absolute inset-0">
+                        <ResponsiveImage src={'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/lake_balkhash.jpg'} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-zinc-950/30" />
+                      </div>
+                      <div className="relative z-10 p-8 md:p-16 text-center">
+                        <motion.div initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                          className="w-16 h-16 md:w-20 md:h-20 bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center mx-auto mb-6 shrink-0"
+                        ><MapIcon className="w-8 h-8 md:w-10 md:h-10 text-white" /></motion.div>
+                        <motion.h3 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                          className="text-4xl md:text-7xl font-black uppercase tracking-tighter text-white leading-[0.85] mb-4"
+                        >{data.trip_title}</motion.h3>
+                        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+                          className="text-base md:text-xl text-white/60 italic max-w-2xl mx-auto mb-8 leading-relaxed"
+                        >"{data.overview}"</motion.p>
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+                          className="flex flex-wrap items-center justify-center gap-3"
+                        >
+                          <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/10">
+                            <Calendar className="w-3.5 h-3.5 text-white/70" />
+                            <span className="text-[10px] font-black uppercase tracking-wider text-white/80">{totalDays} {totalDays === 1 ? 'Day' : 'Days'}</span>
+                          </div>
+                          {data.total_estimated_cost && (
+                            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/20">
+                              <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300">{data.total_estimated_cost}</span>
+                            </div>
+                          )}
+                          {data.difficulty && (
+                            <div className={`flex items-center gap-2 px-4 py-2 backdrop-blur-md border ${
+                              data.difficulty === 'Easy' ? 'bg-blue-500/20 border-blue-500/20' :
+                              data.difficulty === 'Moderate' ? 'bg-amber-500/20 border-amber-500/20' :
+                              data.difficulty === 'Challenging' ? 'bg-orange-500/20 border-orange-500/20' :
+                              'bg-red-500/20 border-red-500/20'
+                            }`}>
+                              <Activity className="w-3.5 h-3.5 text-white/70" />
+                              <span className="text-[10px] font-black uppercase tracking-wider text-white/80">{data.difficulty}</span>
+                            </div>
+                          )}
+                          {data.best_season && (
+                            <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/10">
+                              <Sun className="w-3.5 h-3.5 text-amber-400" />
+                              <span className="text-[10px] font-black uppercase tracking-wider text-white/80">{data.best_season}</span>
+                            </div>
+                          )}
+                        </motion.div>
+                      </div>
                   </div>
                   
-                  <div className="relative space-y-24">
-                      <div className="absolute left-[40px] md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-zinc-200 to-transparent" />
-                      
+                  {data.highlights && data.highlights.length > 0 && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
+                      className="flex flex-wrap gap-2 justify-center px-4"
+                    >
+                      {data.highlights.map((h: string, hi: number) => (
+                        <span key={hi} className="px-4 py-2 bg-white/80 backdrop-blur border border-zinc-100 text-[9px] font-black uppercase tracking-wider text-zinc-600 shadow-sm">{h}</span>
+                      ))}
+                    </motion.div>
+                  )}
+                  
+                  <div className="relative space-y-6">
                       {data.itinerary?.map((day: any, i: number) => (
-                          <div key={i} className={`flex flex-col md:flex-row items-start gap-12 ${i % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
-                              <div className="flex-[4] w-full min-w-0 relative z-10">
-                                  <NaturalCard color={currentVisual.accent} delay={i * 0.1}>
-                                      <div className="flex items-center gap-6 md:gap-10 mb-10 min-w-0">
-                                          <div className="w-16 h-16 md:w-20 md:h-20 rounded-none flex items-center justify-center font-black text-2xl md:text-3xl text-white shadow-xl shrink-0" style={{ backgroundColor: currentVisual.accent }}>{i+1}</div>
-                                          <h4 className="text-2xl md:text-4xl font-black uppercase tracking-tight text-black leading-tight flex-1 min-w-0">{day.title}</h4>
-                                      </div>
-                                      <div className="grid md:grid-cols-3 gap-8 md:gap-12 overflow-hidden">
-                                          {['morning', 'afternoon', 'evening'].map((time, idx) => (
-                                              <div key={time} className="group/item min-w-0 space-y-4">
-                                                  <div className="flex items-center gap-4">
-                                                      <div className="w-3 h-3 rounded-none shrink-0" style={{ backgroundColor: currentVisual.accent }} />
-                                                      <span className="text-[11px] md:text-[12px] font-black uppercase tracking-[0.4em] text-zinc-500 shrink-0">{t(`ai_${time}`)}</span>
-                                                  </div>
-                                                  {day[`${time}_location`] && (
-                                                    <div className="flex items-center gap-2 pl-6 text-zinc-400">
-                                                      <MapPin className="w-3 h-3 shrink-0" />
-                                                      <span className="text-[10px] font-black uppercase tracking-wider truncate">{day[`${time}_location`]}</span>
-                                                    </div>
-                                                  )}
-                                                  <p className="text-lg font-bold text-zinc-900 leading-relaxed pl-6 border-l-2 border-zinc-200 group-hover/item:border-zinc-400 transition-colors">{day[time]}</p>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  </NaturalCard>
+                          <motion.div key={i} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.08, duration: 0.6 }}>
+                            <NaturalCard color={currentVisual.accent} delay={0}>
+                              <div className="flex items-center gap-4 md:gap-6 mb-8 pb-6 border-b border-zinc-100">
+                                <div className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center font-black text-xl md:text-2xl text-white shadow-lg shrink-0" style={{ backgroundColor: currentVisual.accent }}>
+                                  {String(day.day || i + 1).padStart(2, '0')}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-40">Day {day.day || i + 1}</span>
+                                    {day.day_total && (
+                                      <span className="text-[8px] font-black uppercase tracking-wider px-2.5 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100">{day.day_total}</span>
+                                    )}
+                                  </div>
+                                  <h4 className="text-xl md:text-3xl font-black uppercase tracking-tight text-zinc-800 leading-tight">{day.title}</h4>
+                                </div>
                               </div>
-                              <div className="hidden md:flex w-12 h-12 rounded-none bg-white border-4 items-center justify-center z-20 shrink-0 mt-24" style={{ borderColor: `${currentVisual.accent}20`, color: currentVisual.accent }}>
-                                  <div className="w-3 h-3 rounded-none animate-pulse" style={{ backgroundColor: currentVisual.accent }} />
+                              <div className="space-y-5">
+                                {(['morning', 'afternoon', 'evening'] as const).map((period) => {
+                                  const PIcon = PERIOD_ICONS[period] || Sun;
+                                  const pColor = PERIOD_COLORS[period];
+                                  const cat = day[`${period}_category`];
+                                  const catColor = cat ? (CAT_COLORS[cat] || currentVisual.accent) : currentVisual.accent;
+                                  return (
+                                    <div key={period} className="overflow-hidden border border-zinc-50 hover:border-zinc-200 transition-all duration-300 hover:shadow-md bg-white/50">
+                                      <div className="flex items-center gap-3 px-5 py-3 bg-zinc-50/80">
+                                        <div className="w-7 h-7 flex items-center justify-center" style={{ backgroundColor: `${pColor}15` }}>
+                                          <PIcon className="w-3.5 h-3.5" style={{ color: pColor }} />
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: pColor }}>{t(`ai_${period}`)}</span>
+                                        {day[`${period}_time`] && (
+                                          <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 ml-auto flex items-center gap-1.5">
+                                            <Clock className="w-3 h-3" /> {day[`${period}_time`]}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="px-5 py-4 space-y-3">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          {day[`${period}_location`] && (
+                                            <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-500 bg-zinc-50 px-3 py-1">
+                                              <MapPin className="w-3 h-3" style={{ color: catColor }} /> {day[`${period}_location`]}
+                                            </span>
+                                          )}
+                                          {day[`${period}_cost`] && (
+                                            <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-3 py-1" style={{ backgroundColor: `${catColor}10`, color: catColor }}>
+                                              <CreditCard className="w-2.5 h-2.5" /> {day[`${period}_cost`]}
+                                            </span>
+                                          )}
+                                          {cat && (
+                                            <span className="text-[8px] font-black uppercase tracking-wider px-2.5 py-1 border" style={{ borderColor: `${catColor}30`, color: catColor }}>{cat}</span>
+                                          )}
+                                        </div>
+                                        <p className="text-sm md:text-base text-zinc-700 leading-relaxed">{day[period]}</p>
+                                        {day[`${period}_lat`] && day[`${period}_lng`] && (
+                                          <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-wider text-zinc-300">
+                                            <Navigation className="w-2.5 h-2.5" />
+                                            {parseFloat(day[`${period}_lat`]).toFixed(4)}, {parseFloat(day[`${period}_lng`]).toFixed(4)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                              <div className="flex-1 hidden md:block" />
-                          </div>
+                              {(day.accommodation || day.transport_tip) && (
+                                <div className="mt-6 pt-5 border-t border-zinc-100 grid sm:grid-cols-2 gap-4">
+                                  {day.accommodation && (
+                                    <div className="flex items-start gap-3 px-4 py-3 bg-indigo-50/50 border border-indigo-100/50">
+                                      <Moon className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
+                                      <div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider text-indigo-400 block mb-0.5">Stay</span>
+                                        <span className="text-[11px] font-black text-zinc-700">{day.accommodation}</span>
+                                        {day.accommodation_cost && <span className="text-[10px] font-black text-indigo-500 ml-2">{day.accommodation_cost}</span>}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {day.transport_tip && (
+                                    <div className="flex items-start gap-3 px-4 py-3 bg-sky-50/50 border border-sky-100/50">
+                                      <Route className="w-4 h-4 text-sky-400 mt-0.5 shrink-0" />
+                                      <div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider text-sky-400 block mb-0.5">Transport</span>
+                                        <span className="text-[11px] font-black text-zinc-600">{day.transport_tip}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </NaturalCard>
+                          </motion.div>
                       ))}
                   </div>
 
-                  {data.tips && data.tips.length > 0 && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 20 }} 
-                        animate={{ opacity: 1, y: 0 }} 
-                        transition={{ delay: 0.5 }}
-                        className="mx-2 p-8 md:p-10 rounded-none border border-zinc-100 bg-white/50 backdrop-blur-md space-y-6 overflow-hidden"
-                      >
-                          <div className="flex items-center gap-3 md:gap-4 text-zinc-400 min-w-0">
-                              <Zap className="w-4 h-4 md:w-5 md:h-5 shrink-0" />
-                              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">{t('ai_tips')}</span>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {data.tips && data.tips.length > 0 && (
+                      <NaturalCard color={currentVisual.accent} delay={0.2}>
+                          <div className="flex items-center gap-3 text-zinc-400 mb-6">
+                              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${currentVisual.accent}15` }}>
+                                <Zap className="w-4 h-4" style={{ color: currentVisual.accent }} />
+                              </div>
+                              <span className="text-[10px] font-black uppercase tracking-widest">{t('ai_tips')}</span>
                           </div>
-                          <div className="grid sm:grid-cols-2 gap-4">
+                          <div className="space-y-3">
                               {data.tips.map((tip: string, idx: number) => (
-                                  <div key={idx} className="p-4 bg-white/50 rounded-none border border-white flex items-start gap-4 min-w-0">
+                                  <div key={idx} className="flex items-start gap-3">
                                       <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: currentVisual.accent }} />
-                                      <p className="text-[10px] md:text-xs font-bold text-zinc-600 leading-relaxed uppercase tracking-tight">{tip}</p>
+                                      <p className="text-xs text-zinc-600 leading-relaxed">{tip}</p>
                                   </div>
                               ))}
                           </div>
-                      </motion.div>
-                  )}
+                      </NaturalCard>
+                    )}
+                    {data.packing_essentials && data.packing_essentials.length > 0 && (
+                      <NaturalCard color="#7c3aed" delay={0.3}>
+                          <div className="flex items-center gap-3 text-zinc-400 mb-6">
+                              <div className="w-8 h-8 flex items-center justify-center bg-violet-50">
+                                <Package className="w-4 h-4 text-violet-500" />
+                              </div>
+                              <span className="text-[10px] font-black uppercase tracking-widest">Packing Essentials</span>
+                          </div>
+                          <div className="space-y-3">
+                              {data.packing_essentials.map((item: string, idx: number) => (
+                                  <div key={idx} className="flex items-start gap-3">
+                                      <Briefcase className="w-4 h-4 mt-0.5 shrink-0 text-violet-400" />
+                                      <p className="text-xs text-zinc-600 leading-relaxed">{item}</p>
+                                  </div>
+                              ))}
+                          </div>
+                      </NaturalCard>
+                    )}
+                  </div>
 
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }} 
                     animate={{ opacity: 1, y: 0 }} 
                     transition={{ delay: 0.7 }}
-                    className="mx-2 p-8 md:p-12 rounded-none bg-zinc-900 text-white relative overflow-hidden"
+                    className="bg-zinc-900 text-white relative overflow-hidden"
                   >
-                      <div className="absolute -top-32 -right-32 w-64 h-64 rounded-none blur-3xl opacity-10" style={{ backgroundColor: currentVisual.accent }} />
-                      <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                      <div className="absolute -top-32 -right-32 w-64 h-64 blur-3xl opacity-10" style={{ backgroundColor: currentVisual.accent }} />
+                      <div className="absolute bottom-0 left-0 w-48 h-48 blur-3xl opacity-5" style={{ backgroundColor: currentVisual.accent }} />
+                      <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row items-center gap-8">
                           <div className="flex-1 min-w-0">
                               <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 block mb-2">{t('ai_saved_success')}</span>
                               <h4 className="text-2xl md:text-3xl font-black uppercase tracking-tighter">{t('ai_save_to_planner')}</h4>
-                              <p className="text-xs font-bold text-zinc-400 mt-2 uppercase tracking-wider">{data.trip_title} · {data.itinerary?.length || 0} {t('day')}</p>
+                              <p className="text-xs font-bold text-zinc-400 mt-2 uppercase tracking-wider">{data.trip_title} · {totalDays} {t('day')}{data.total_estimated_cost ? ` · ${data.total_estimated_cost}` : ''}</p>
                           </div>
-                          <div className="flex flex-col sm:flex-row gap-4 shrink-0 w-full md:w-auto">
+                          <div className="flex flex-col sm:flex-row gap-3 shrink-0 w-full md:w-auto">
                               <button 
                                   onClick={() => saveConstructorToTrip(data)}
                                   disabled={isSaving}
-                                  className="px-8 py-4 text-black font-black uppercase tracking-[0.2em] text-[10px] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 rounded-none shadow-xl"
+                                  className="px-8 py-4 text-black font-black uppercase tracking-[0.2em] text-[10px] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl"
                                   style={{ backgroundColor: currentVisual.accent }}
                               >
                                   <Save className="w-4 h-4" /> {isSaving ? t('saving') : t('ai_save_to_planner')}
@@ -540,7 +916,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                               <button 
                                   onClick={() => saveConstructorToTrip(data, true)}
                                   disabled={isSaving}
-                                  className="px-8 py-4 bg-white/10 backdrop-blur text-white border border-white/20 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-white/20 transition-all flex items-center justify-center gap-3 rounded-none"
+                                  className="px-8 py-4 bg-white/10 backdrop-blur text-white border border-white/20 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-white/20 transition-all flex items-center justify-center gap-3"
                               >
                                   <Play className="w-4 h-4" /> {t('ai_save_and_fly')}
                               </button>
@@ -549,11 +925,14 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                   </motion.div>
               </div>
           );
+          }
 
-          if (activeTool?.id === 'hidden_gems') return (
+          const enhancedResult = renderEnhancedTool({ toolId: activeTool?.id || '', data, accent: currentVisual.accent, t, NaturalCard, GEM_FALLBACK_IMAGES, addGemToTrip, saveHorizonToTrip, saveBudgetToTrip, isSaving, onNavigate: onNavigate || undefined, toast });
+          if (enhancedResult) return enhancedResult;
+          if (false) return (
               <div className="space-y-12 max-w-5xl mx-auto">
-                  <div className="flex items-center justify-between mb-16 border-b pb-8">
-                      <h3 className="text-4xl font-black uppercase tracking-tighter text-zinc-800">{data.region}</h3>
+                  <div className="relative -mx-2 overflow-hidden mb-0">
+                      <h3 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-[0.85] text-white mb-4">{data.region}</h3>
                       <div className="flex items-center gap-4 text-zinc-400 font-black text-xs uppercase tracking-widest">
                           <Eye className="w-5 h-5" /> {t('ui_secret_vision')}
                       </div>
@@ -578,7 +957,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                                         </span>
                                         <button 
                                             onClick={() => addGemToTrip(gem)}
-                                            className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-4 md:px-6 py-2 rounded-none border hover:scale-105 active:scale-95 transition-all flex items-center gap-2 whitespace-nowrap"
+                                            className="text-[9px] md:text-[10px] font-black uppercase tracking-widest px-4 md:px-6 py-2 border hover:scale-105 active:scale-95 transition-all flex items-center gap-2 whitespace-nowrap"
                                             style={{ borderColor: currentVisual.accent, color: currentVisual.accent }}
                                         >
                                             <Plus className="w-3 h-3" /> {t('ai_add_to_trip')}
@@ -590,8 +969,8 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                       ))}
                   </div>
                   {data.local_legend && (
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="p-12 rounded-none bg-zinc-900 text-white relative overflow-hidden">
-                          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-none -translate-y-1/2 translate-x-1/2 blur-3xl" />
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="p-12 bg-zinc-900 text-white relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 -translate-y-1/2 translate-x-1/2 blur-3xl" />
                           <span className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40 mb-6 block">{t('ui_echoes_past')}</span>
                           <p className="text-2xl md:text-3xl font-bold leading-tight italic">"{data.local_legend}"</p>
                       </motion.div>
@@ -873,75 +1252,106 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
   };
 
   return (
+    <PageTransition>
     <div className="relative h-screen flex flex-col font-sans overflow-hidden" style={{ backgroundColor: theme.background, color: theme.text }}>
       
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-50 transition-all duration-1000">
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-25 transition-all duration-1000">
           <ResponsiveImage src={currentVisual.image} className="w-full h-full object-cover brightness-105" priority />
           <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 0%, ${theme.background} 95%)` }} />
       </div>
 
-      <header className="relative z-20 px-5 pr-16 md:px-8 py-4 md:py-6 flex justify-between items-center border-b border-zinc-200 bg-white/70 backdrop-blur-2xl shrink-0">
-          <div className="flex items-center gap-3 md:gap-4">
-              <div className="w-3 h-3 rounded-none" style={{ backgroundColor: currentVisual.accent }} />
-              <h1 className="text-base md:text-xl font-black uppercase tracking-tighter text-zinc-800">{t('ui_ai_guide_header')}</h1>
+      <header className="relative z-20 px-4 pr-16 md:px-6 md:pr-20 py-4 md:py-5 flex justify-between items-center border-b border-zinc-200 bg-white/90 backdrop-blur-2xl shrink-0 shadow-sm">
+          <div className="flex items-center gap-3">
+              <div className="w-8 h-8 flex items-center justify-center shrink-0" style={{ backgroundColor: currentVisual.accent }}>
+                  <Compass className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                  <h1 className="text-sm md:text-base font-black uppercase tracking-tight text-zinc-800">{t('ui_ai_guide_header')}</h1>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-zinc-400 hidden md:block">Your personal Kazakhstan travel assistant</p>
+              </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+              {/* History toggle */}
+              <button 
+                  onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+                  className="p-2 hover:bg-zinc-100 transition-all relative"
+                  title="Chat History"
+              >
+                  <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+                  {chatSessions.length > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-[7px] font-black text-white flex items-center justify-center" style={{ backgroundColor: currentVisual.accent }}>{chatSessions.length}</span>
+                  )}
+              </button>
+              {/* New chat */}
+              <button onClick={startNewChat} className="p-2 hover:bg-zinc-100 transition-all" title="New Chat">
+                  <Plus className="w-3.5 h-3.5 text-zinc-400" />
+              </button>
+              {/* Mobile view toggle */}
               <div className="flex lg:hidden border border-zinc-200 overflow-hidden">
                   <button 
                       onClick={() => setMobileView('chat')}
-                      className={`px-3 py-2 text-[9px] font-black uppercase tracking-wider transition-all ${mobileView === 'chat' ? 'text-white' : 'text-zinc-400 bg-white'}`}
+                      className={`px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider transition-all ${mobileView === 'chat' ? 'text-white' : 'text-zinc-400 bg-white'}`}
                       style={mobileView === 'chat' ? { backgroundColor: currentVisual.accent } : {}}
-                  >
-                      {t('ui_curator') || 'Chat'}
-                  </button>
+                  >Chat</button>
                   <button 
                       onClick={() => setMobileView('tools')}
-                      className={`px-3 py-2 text-[9px] font-black uppercase tracking-wider transition-all ${mobileView === 'tools' ? 'text-white' : 'text-zinc-400 bg-white'}`}
+                      className={`px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider transition-all ${mobileView === 'tools' ? 'text-white' : 'text-zinc-400 bg-white'}`}
                       style={mobileView === 'tools' ? { backgroundColor: currentVisual.accent } : {}}
-                  >
-                      {t('ui_rituals') || 'Tools'}
-                  </button>
+                  >Tools</button>
               </div>
-              <button onClick={() => window.location.reload()} className="p-2 md:p-3 hover:bg-zinc-100 rounded-none transition-all group">
-                  <RefreshCw className="w-4 h-4 text-zinc-400 group-hover:rotate-180 transition-transform duration-700" />
+              {/* Sidebar toggle - small icon button */}
+              <button 
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+                  className="hidden lg:flex p-2 hover:bg-zinc-100 transition-all"
+                  title={isSidebarOpen ? 'Close Tools' : 'Open Tools'}
+              >
+                  {isSidebarOpen ? <PanelRightClose className="w-3.5 h-3.5 text-zinc-400" /> : <PanelRightOpen className="w-3.5 h-3.5 text-zinc-400" />}
+              </button>
+              <button onClick={() => window.location.reload()} className="p-2 hover:bg-zinc-100 transition-all group">
+                  <RefreshCw className="w-3.5 h-3.5 text-zinc-400 group-hover:rotate-180 transition-transform duration-700" />
               </button>
           </div>
       </header>
 
-      <main className="relative z-10 flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <main className="relative z-10 flex-1 flex flex-col overflow-hidden">
         
-        <div className={`flex-1 flex flex-col border-r border-zinc-100 min-w-0 ${mobileView !== 'chat' ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`flex-1 flex flex-col min-w-0 ${mobileView !== 'chat' ? 'hidden lg:flex' : 'flex'}`}>
+            <AILimitBanner />
             <div className="flex-1 overflow-y-auto no-scrollbar p-5 md:p-12 space-y-6 md:space-y-10">
                 <AnimatePresence mode="popLayout">
                     {messages.map((msg, idx) => (
-                        <motion.div key={msg.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col items-start w-full">
-                            <span className="text-[10px] font-black uppercase tracking-[0.4em] mb-4 text-zinc-400">
+                        <motion.div key={msg.id} initial={{ opacity: 0, y: 15, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} className={`flex flex-col w-full ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                            <span className={`text-[9px] font-black uppercase tracking-[0.3em] mb-2 text-zinc-400 ${msg.sender === 'user' ? 'mr-1' : 'ml-1'}`}>
                                 {msg.sender === 'user' ? t('ui_traveler') : t('ui_curator')}
                             </span>
-                            <div className={`p-5 md:p-8 rounded-none text-base md:text-2xl leading-snug tracking-tighter shadow-sm border-2 max-w-[95%] ${
-                                msg.sender === 'user' ? 'bg-zinc-50 font-black' : 'bg-white/80 backdrop-blur-md font-bold'
-                            }`} style={{ borderColor: `${currentVisual.accent}20` }}>
-                                <div className="prose prose-lg max-w-none text-zinc-800 font-inherit">
-                                <SafeMarkdown 
-                                    components={{
-                                        p: ({node, ...props}) => <p {...props} className="mb-4 last:mb-0 leading-relaxed" />,
-                                        h1: ({node, ...props}) => <h1 {...props} className="text-3xl font-black mb-4 mt-6 uppercase tracking-tight" />,
-                                        h2: ({node, ...props}) => <h2 {...props} className="text-2xl font-black mb-3 mt-5 uppercase tracking-tight" />,
-                                        h3: ({node, ...props}) => <h3 {...props} className="text-xl font-black mb-2 mt-4 uppercase tracking-tight" />,
-                                        ul: ({node, ...props}) => <ul {...props} className="list-disc pl-6 mb-4 space-y-2 marker:text-zinc-400 opacity-90" />,
-                                        ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-6 mb-4 space-y-2 marker:text-zinc-400 font-bold opacity-90" />,
-                                        li: ({node, ...props}) => <li {...props} className="pl-2" />,
-                                        strong: ({node, ...props}) => <strong {...props} className="font-black text-zinc-900" />,
-                                        a: ({node, ...props}) => <a {...props} className="underline decoration-2 underline-offset-4 decoration-zinc-300 hover:decoration-zinc-800 transition-all text-zinc-900 font-bold" />,
-                                        blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-4 border-zinc-200 pl-6 py-2 my-6 italic text-zinc-500 bg-zinc-50/50 rounded-r-none" />,
-                                        table: ({node, ...props}) => <div className="overflow-x-auto my-6 rounded-none border border-zinc-100 shadow-sm"><table {...props} className="w-full text-left text-sm md:text-base border-collapse" /></div>,
-                                        thead: ({node, ...props}) => <thead {...props} className="bg-zinc-50 border-b border-zinc-100" />,
-                                        th: ({node, ...props}) => <th {...props} className="px-6 py-4 font-black uppercase tracking-wider text-zinc-500 text-xs md:text-xs" />,
-                                        td: ({node, ...props}) => <td {...props} className="px-6 py-4 border-b border-zinc-50 text-zinc-700 font-bold" />,
-                                    }}
-                                >
-                                    {msg.text}
-                                </SafeMarkdown>
+                            <div className={`p-5 md:p-6 text-sm md:text-base leading-relaxed shadow-sm border max-w-[85%] md:max-w-[75%] ${
+                                msg.sender === 'user' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-white border-zinc-200'
+                            }`}>
+                                <div className={`prose prose-sm md:prose-base max-w-none ${msg.sender === 'user' ? 'text-white prose-invert' : 'text-zinc-700'}`}>
+                                {msg.sender === 'ai' && idx === messages.length - 1 ? (
+                                    <TypewriterText text={msg.text} />
+                                ) : (
+                                    <SafeMarkdown 
+                                        components={{
+                                            p: ({node, ...props}) => <p {...props} className="mb-4 last:mb-0 leading-relaxed" />,
+                                            h1: ({node, ...props}) => <h1 {...props} className="text-3xl font-black mb-4 mt-6 uppercase tracking-tight" />,
+                                            h2: ({node, ...props}) => <h2 {...props} className="text-2xl font-black mb-3 mt-5 uppercase tracking-tight" />,
+                                            h3: ({node, ...props}) => <h3 {...props} className="text-xl font-black mb-2 mt-4 uppercase tracking-tight" />,
+                                            ul: ({node, ...props}) => <ul {...props} className="list-disc pl-6 mb-4 space-y-2 marker:text-zinc-400 opacity-90" />,
+                                            ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-6 mb-4 space-y-2 marker:text-zinc-400 font-bold opacity-90" />,
+                                            li: ({node, ...props}) => <li {...props} className="pl-2" />,
+                                            strong: ({node, ...props}) => <strong {...props} className="font-black text-zinc-900" />,
+                                            a: ({node, ...props}) => <a {...props} className="underline decoration-2 underline-offset-4 decoration-zinc-300 hover:decoration-zinc-800 transition-all text-zinc-900 font-bold" />,
+                                            blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-4 border-zinc-200 pl-6 py-2 my-6 italic text-zinc-500 bg-zinc-50/50" />,
+                                            table: ({node, ...props}) => <div className="overflow-x-auto my-6 rounded-none border border-zinc-100 shadow-sm"><table {...props} className="w-full text-left text-sm md:text-base border-collapse" /></div>,
+                                            thead: ({node, ...props}) => <thead {...props} className="bg-zinc-50 border-b border-zinc-100" />,
+                                            th: ({node, ...props}) => <th {...props} className="px-6 py-4 font-black uppercase tracking-wider text-zinc-500 text-xs md:text-xs" />,
+                                            td: ({node, ...props}) => <td {...props} className="px-6 py-4 border-b border-zinc-50 text-zinc-700 font-bold" />,
+                                        }}
+                                    >
+                                        {msg.text}
+                                    </SafeMarkdown>
+                                )}
                                 </div>
                             </div>
                         </motion.div>
@@ -951,44 +1361,47 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 md:p-10 bg-white/80 backdrop-blur-3xl border-t border-zinc-100">
-                <div className="relative max-w-4xl mx-auto flex items-center">
-                    <input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                      placeholder={t('ai_speak_placeholder')}
-                      className="w-full bg-zinc-50 text-base md:text-2xl font-bold outline-none py-4 md:py-6 px-5 md:px-10 rounded-none pr-16 md:pr-24 border-2 transition-all placeholder:text-zinc-400 text-zinc-700"
-                      style={{ borderColor: `${currentVisual.accent}10` }}
-                    />
-                    <button 
-                      onClick={() => handleSend()} 
-                      disabled={!input.trim()} 
-                      className="absolute right-2 md:right-4 p-3 md:p-5 rounded-none transition-all disabled:opacity-5 hover:scale-110 active:scale-90"
-                      style={{ color: currentVisual.accent }}
-                    >
-                      <Send className="w-6 h-6 md:w-8 md:h-8" />
-                    </button>
+            <div className="shrink-0 p-4 md:p-6 bg-white/95 backdrop-blur-2xl border-t border-zinc-200 shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex items-center gap-0 bg-zinc-50 border-2 border-zinc-200 focus-within:border-zinc-400 transition-all shadow-sm">
+                        <input
+                          type="text"
+                          value={input}
+                          onChange={(e) => setInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                          placeholder={t('ai_speak_placeholder')}
+                          className="flex-1 bg-transparent text-sm md:text-base outline-none py-4 md:py-5 px-5 md:px-6 placeholder:text-zinc-400 text-zinc-800 min-w-0"
+                        />
+                        <button 
+                          onClick={() => handleSend()} 
+                          disabled={!input.trim()} 
+                          className="m-1.5 md:m-2 p-3 md:p-3.5 transition-all disabled:opacity-20 hover:scale-105 active:scale-95 text-white shrink-0"
+                          style={{ backgroundColor: input.trim() ? currentVisual.accent : '#d4d4d8' }}
+                        >
+                          <Send className="w-4 h-4 md:w-5 md:h-5" />
+                        </button>
+                    </div>
+                    <div className="flex items-center justify-between mt-2 px-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-zinc-300">Kendala AI</span>
+                        <button onClick={() => setIsSidebarOpen(true)} className="text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:text-zinc-600 transition-colors flex items-center gap-1.5 lg:hidden">
+                            <Zap className="w-3 h-3" /> Tools
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div className={`w-full lg:w-[420px] bg-zinc-50/20 backdrop-blur-xl flex flex-col shrink-0 ${mobileView !== 'tools' ? 'hidden lg:flex' : 'flex'}`}>
-            <div className="p-5 md:p-8 border-b border-zinc-100 bg-white/40">
+        {/* Mobile tools view */}
+        <div className={`w-full bg-zinc-50/20 backdrop-blur-xl flex flex-col lg:hidden ${mobileView !== 'tools' ? 'hidden' : 'flex'}`}>
+            <div className="p-5 border-b border-zinc-100 bg-white/40">
                 <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">{t('ui_rituals')}</span>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar p-4 md:p-6 space-y-3 md:space-y-4">
+            <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3">
                 {tools.map((tool) => (
-                    <button
-                        key={tool.id}
-                        onClick={() => { setActiveTool(tool); setMobileView('chat'); }}
-                        className="w-full group flex items-center gap-4 md:gap-6 p-4 md:p-6 rounded-none transition-all text-left border-2 shadow-sm bg-white/90 hover:scale-[1.02]"
-                        style={{ borderColor: `${currentVisual.accent}20` }}
-                    >
-                        <div className="p-2 md:p-3 rounded-none transition-all" style={{ backgroundColor: `${currentVisual.accent}10`, color: currentVisual.accent }}>
-                            <tool.icon className="w-5 h-5 md:w-6 md:h-6" />
-                        </div>
+                    <button key={tool.id} onClick={() => { setActiveTool(tool); setMobileView('chat'); }}
+                        className="w-full group flex items-center gap-4 p-4 transition-all text-left border shadow-sm bg-white/90 hover:shadow-md"
+                        style={{ borderColor: `${currentVisual.accent}20` }}>
+                        <div className="p-2" style={{ backgroundColor: `${currentVisual.accent}10`, color: currentVisual.accent }}><tool.icon className="w-5 h-5" /></div>
                         <div className="flex-1 min-w-0">
                             <h4 className="text-xs font-black uppercase tracking-tight text-zinc-800 mb-1">{tool.label}</h4>
                             <p className="text-[10px] font-bold leading-tight text-zinc-500 line-clamp-2">{tool.description}</p>
@@ -998,6 +1411,110 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                 ))}
             </div>
         </div>
+
+        {/* Desktop sliding sidebar */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-20 bg-black/10 backdrop-blur-[2px] hidden lg:block"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+              <motion.div
+                initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                className="fixed top-0 right-0 bottom-0 z-30 w-[380px] bg-white/95 backdrop-blur-2xl border-l border-zinc-200 flex flex-col shadow-2xl hidden lg:flex"
+              >
+                <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">{t('ui_rituals')}</span>
+                    <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 hover:bg-zinc-100 transition-all">
+                        <X className="w-3.5 h-3.5 text-zinc-400" />
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3">
+                    {tools.map((tool) => (
+                        <button key={tool.id} onClick={() => { setActiveTool(tool); setIsSidebarOpen(false); }}
+                            className="w-full group flex items-center gap-4 p-4 transition-all text-left border shadow-sm bg-white/90 hover:scale-[1.01] hover:shadow-md"
+                            style={{ borderColor: `${currentVisual.accent}20` }}>
+                            <div className="p-2.5" style={{ backgroundColor: `${currentVisual.accent}10`, color: currentVisual.accent }}><tool.icon className="w-5 h-5" /></div>
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-xs font-black uppercase tracking-tight text-zinc-800 mb-1">
+                                  {tool.label}
+                                  {PREMIUM_TOOL_MAP[tool.id] && !canUseFeature(PREMIUM_TOOL_MAP[tool.id] as any) && (
+                                    <span className="ml-2 inline-flex items-center gap-0.5 text-[7px] tracking-[0.15em] px-1.5 py-0.5 align-middle" style={{ backgroundColor: '#D4AF37', color: '#1a1a1a' }}>♛ NOMAD</span>
+                                  )}
+                                </h4>
+                                <p className="text-[10px] font-bold leading-tight text-zinc-500 line-clamp-2">{tool.description}</p>
+                            </div>
+                            <ArrowRight className="w-3.5 h-3.5 text-zinc-200 group-hover:text-zinc-400 transition-all shrink-0" />
+                        </button>
+                    ))}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Chat History sliding panel */}
+        <AnimatePresence>
+          {isHistoryOpen && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-20 bg-black/10 backdrop-blur-[2px]"
+                onClick={() => setIsHistoryOpen(false)}
+              />
+              <motion.div
+                initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                className="fixed top-0 left-0 bottom-0 z-30 w-[320px] bg-white/95 backdrop-blur-2xl border-r border-zinc-200 flex flex-col shadow-2xl"
+              >
+                <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">HISTORY</span>
+                    <div className="flex items-center gap-1">
+                      <button onClick={startNewChat} className="p-1.5 hover:bg-zinc-100 transition-all" title="New Chat">
+                          <Plus className="w-3.5 h-3.5 text-zinc-400" />
+                      </button>
+                      <button onClick={() => setIsHistoryOpen(false)} className="p-1.5 hover:bg-zinc-100 transition-all">
+                          <X className="w-3.5 h-3.5 text-zinc-400" />
+                      </button>
+                    </div>
+                </div>
+                <div className="flex-1 overflow-y-auto no-scrollbar">
+                    {chatSessions.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <MessageSquare className="w-8 h-8 text-zinc-200 mx-auto mb-3" />
+                        <p className="text-[10px] font-black uppercase tracking-wider text-zinc-300">No conversations yet</p>
+                        <p className="text-[9px] text-zinc-400 mt-1">Start chatting to save history</p>
+                      </div>
+                    ) : (
+                      <div className="p-3 space-y-1">
+                        {chatSessions.map((session) => (
+                          <div key={session.id} className={`group flex items-center gap-3 p-3 cursor-pointer transition-all hover:bg-zinc-50 ${activeSessionId === session.id ? 'bg-zinc-50 border-l-2' : ''}`}
+                            style={activeSessionId === session.id ? { borderLeftColor: currentVisual.accent } : {}}
+                            onClick={() => loadSession(session)}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-zinc-300 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-black text-zinc-700 truncate">{session.title}</p>
+                              <p className="text-[9px] text-zinc-400">{session.messages.length} messages · {new Date(session.updatedAt).toLocaleDateString()}</p>
+                            </div>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); deleteSession(session.id); }}
+                              className="p-1 opacity-0 group-hover:opacity-100 hover:bg-zinc-200 transition-all"
+                            >
+                              <Trash2 className="w-3 h-3 text-zinc-400" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </main>
 
       <AnimatePresence>
@@ -1006,7 +1523,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                   <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-md" onClick={() => setActiveTool(null)} />
                   <motion.div 
                     initial={{ scale: 0.95, y: 40 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 40 }} 
-                    className="relative w-full md:max-w-6xl h-full md:h-[85vh] bg-white rounded-none shadow-2xl flex flex-col overflow-hidden border-0 md:border-4"
+                    className="relative w-full md:max-w-6xl h-full md:h-[85vh] bg-white shadow-2xl flex flex-col overflow-hidden border-0 md:border"
                     style={{ borderColor: `${currentVisual.accent}10` }}
                   >
                       <header className="p-5 md:p-10 border-b border-zinc-100 flex justify-between items-center bg-white shrink-0">
@@ -1024,7 +1541,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                               </div>
                           ) : !toolResult ? (
                               <div className="max-w-2xl mx-auto space-y-8 md:space-y-12">
-                                  <p className="text-lg md:text-2xl font-black text-zinc-300 leading-tight italic">"{activeTool.description}"</p>
+                                  <p className="text-sm md:text-base font-black text-zinc-300 leading-relaxed italic">"{activeTool.description}"</p>
                                   <div className="space-y-6 md:space-y-10">
                                       {activeTool.fields.map((field) => (
                                           <div key={field.id} className="space-y-3">
@@ -1033,7 +1550,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                                                   <select 
                                                       value={toolValues[field.id] || ''} 
                                                       onChange={(e) => setToolValues(prev => ({ ...prev, [field.id]: e.target.value }))} 
-                                                      className="w-full bg-zinc-50 border-2 md:border-4 p-4 md:p-6 rounded-none text-base md:text-xl font-black outline-none text-zinc-700"
+                                                      className="w-full bg-zinc-50 border p-4 md:p-6 text-base md:text-xl font-black outline-none text-zinc-700"
                                                       style={{ borderColor: `${currentVisual.accent}10` }}
                                                   >
                                                       <option value="" disabled>{field.placeholder}</option>
@@ -1043,7 +1560,7 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                                                   <input 
                                                       type={field.type || 'text'} placeholder={field.placeholder} value={toolValues[field.id] || ''} 
                                                       onChange={(e) => setToolValues(prev => ({ ...prev, [field.id]: e.target.value }))} 
-                                                      className="w-full bg-zinc-50 border-2 md:border-4 p-4 md:p-6 rounded-none text-base md:text-xl font-black outline-none text-zinc-700 placeholder:text-zinc-200" 
+                                                      className="w-full bg-zinc-50 border p-4 md:p-6 text-base md:text-xl font-black outline-none text-zinc-700 placeholder:text-zinc-200" 
                                                       style={{ borderColor: `${currentVisual.accent}10` }}
                                                   />
                                               )}
@@ -1055,10 +1572,10 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
                       </div>
 
                       <footer className="p-5 md:p-10 border-t border-zinc-100 flex flex-wrap gap-3 md:gap-4 justify-end bg-white shrink-0">
-                          {toolResult && <button onClick={() => setToolResult(null)} className="px-6 md:px-8 py-3 md:py-4 border-2 rounded-none text-[10px] font-black uppercase text-zinc-400" style={{ borderColor: `${currentVisual.accent}20` }}>{t('ui_back')}</button>}
+                          {toolResult && <button onClick={() => setToolResult(null)} className="px-6 md:px-8 py-3 md:py-4 border text-[10px] font-black uppercase text-zinc-400" style={{ borderColor: `${currentVisual.accent}20` }}>{t('ui_back')}</button>}
                           <button 
                             onClick={executeTool} disabled={isToolLoading || activeTool.fields.some(f => !toolValues[f.id])} 
-                            className="px-6 md:px-10 py-3 md:py-4 text-white rounded-none text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl"
+                            className="px-6 md:px-10 py-3 md:py-4 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl"
                             style={{ backgroundColor: currentVisual.accent }}
                           >
                               {isToolLoading ? t('ui_syncing_path') : toolResult ? t('ui_update_analysis') : t('ui_process_request')}
@@ -1075,5 +1592,6 @@ export const AIAssistantPage = ({ onNavigate }: { onNavigate?: (page: string) =>
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
     </div>
+    </PageTransition>
   );
 };

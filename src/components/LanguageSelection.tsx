@@ -48,7 +48,6 @@ export const LanguageSelection: React.FC<LanguageSelectionProps> = ({ onSelect }
 
   return (
     <div className="fixed inset-0 z-[100] bg-black font-sans">
-      {/* Cinematic Background - Fixed */}
       <div className="absolute inset-0 z-0">
         <AnimatePresence mode="wait">
           <motion.div
@@ -69,7 +68,6 @@ export const LanguageSelection: React.FC<LanguageSelectionProps> = ({ onSelect }
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 z-10" />
       </div>
 
-      {/* Scrollable Content Container */}
       <div className="absolute inset-0 z-20 overflow-y-auto no-scrollbar">
         <div className="min-h-full flex flex-col items-center justify-center py-12 px-6">
           <motion.div 
@@ -113,7 +111,6 @@ export const LanguageSelection: React.FC<LanguageSelectionProps> = ({ onSelect }
                   onClick={() => handleSelect(lang.code)}
                   className="group relative h-[140px] md:h-[400px] flex flex-col items-center justify-center bg-black/20 backdrop-blur-xl border border-white/10 overflow-hidden transition-all duration-700 hover:border-white/40 active:scale-[0.98]"
                 >
-                  {/* Card Background Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                   
                   <div className="relative z-10 flex flex-col items-center">
@@ -128,10 +125,8 @@ export const LanguageSelection: React.FC<LanguageSelectionProps> = ({ onSelect }
                     </span>
                   </div>
 
-                  {/* Decorative Ornament (Subtle) */}
                   <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-white/5 rounded-full blur-[100px] group-hover:bg-white/10 transition-all duration-1000" />
                   
-                  {/* Bottom Indicator (Desktop Only or when active) */}
                   <div className="hidden md:block absolute bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-4 group-hover:translate-y-0">
                     <div className="flex items-center gap-2 text-white/40 text-[10px] tracking-[0.3em] uppercase">
                       <span>Enter</span>
@@ -161,7 +156,6 @@ export const LanguageSelection: React.FC<LanguageSelectionProps> = ({ onSelect }
         </div>
       </div>
       
-      {/* Border Decoration - Pointer events none ensures clicks go through */}
       <div className="fixed inset-4 md:inset-8 border border-white/5 pointer-events-none z-[110]" />
       <div className="hidden md:block fixed top-8 left-1/2 -translate-x-1/2 w-px h-12 bg-gradient-to-b from-white/20 to-transparent pointer-events-none z-[110]" />
       <div className="hidden md:block fixed bottom-8 left-1/2 -translate-x-1/2 w-px h-12 bg-gradient-to-t from-white/20 to-transparent pointer-events-none z-[110]" />

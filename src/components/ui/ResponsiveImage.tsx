@@ -1,4 +1,5 @@
-import { buildImageUrl } from '../../utils/imageUrls';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { buildImageUrl, buildLqipUrl } from '../../utils/imageUrls';
 
 interface ResponsiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -12,15 +13,36 @@ interface ResponsiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement>
   placeholderColor?: string;
 }
 
-/**
- * Check if a URL is already in the browser's memory/disk cache.
- * Cached images complete synchronously when src is set on a new Image().
- */
 const isImageCached = (url: string): boolean => {
   if (!url || url.startsWith('data:')) return false;
   const probe = new Image();
   probe.src = url;
   return probe.complete && probe.naturalWidth > 0;
+};
+
+// Shared observer for all non-priority images (much better perf than one per component)
+let sharedObserver: IntersectionObserver | null = null;
+const observerCallbacks = new Map<Element, () => void>();
+
+const getSharedObserver = () => {
+  if (!sharedObserver) {
+    sharedObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const cb = observerCallbacks.get(entry.target);
+            if (cb) {
+              cb();
+              sharedObserver?.unobserve(entry.target);
+              observerCallbacks.delete(entry.target);
+            }
+          }
+        });
+      },
+      { rootMargin: '600px', threshold: 0 }
+    );
+  }
+  return sharedObserver;
 };
 
 export const ResponsiveImage = ({ 
@@ -37,93 +59,53 @@ export const ResponsiveImage = ({
   placeholderColor,
   ...props 
 }: ResponsiveImageProps) => {
-  // Build the canonical URL once for cache probing
-  const canonicalUrl = src ? buildImageUrl(src, 1920, 85) : '';
+  const canonicalUrl = src ? buildImageUrl(src, 1080, 85) : '';
   const cachedOnMount = useRef(priority || isImageCached(canonicalUrl));
 
   const [isLoaded, setIsLoaded] = useState(cachedOnMount.current);
   const [isInView, setIsInView] = useState(priority || cachedOnMount.current);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // If priority changes to true (e.g., accordion opens), immediately mark as in-view
+  // Generate LQIP URL (tiny 20px blurred placeholder)
+  const lqipUrl = useMemo(() => buildLqipUrl(src), [src]);
+
   useEffect(() => {
-    if (priority) {
-      setIsInView(true);
-    }
+    if (priority) setIsInView(true);
   }, [priority]);
 
-  // When the real image element completes (e.g. from browser cache), mark loaded
   useEffect(() => {
     if ((isInView || priority) && imgRef.current?.complete && imgRef.current?.naturalWidth > 0) {
       setIsLoaded(true);
     }
   }, [isInView, priority]);
   
-  // Intersection Observer for lazy loading (skipped if already cached or priority)
   useEffect(() => {
     if (priority || isInView) return;
+    const el = containerRef.current;
+    if (!el) return;
 
-    if (!observerRef.current) {
-      observerRef.current = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              setIsInView(true);
-            }
-          });
-        },
-        { 
-          rootMargin: '300px',
-          threshold: 0
-        }
-      );
-    }
-
-    if (containerRef.current) {
-      observerRef.current.observe(containerRef.current);
-    }
+    const observer = getSharedObserver();
+    observerCallbacks.set(el, () => setIsInView(true));
+    observer.observe(el);
 
     return () => {
-      if (observerRef.current && containerRef.current) {
-        observerRef.current.unobserve(containerRef.current);
-      }
+      observer.unobserve(el);
+      observerCallbacks.delete(el);
     };
   }, [priority, isInView]);
-  
-  // Cleanup observer on unmount
-  useEffect(() => {
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, []);
 
-  // Helper to construct Unsplash URLs - uses centralized builder for cache consistency
-  const buildUrl = (url: string, w: number) => {
-    return buildImageUrl(url, w, 85);
-  };
-
-  // Expanded srcset for 4K support
   const srcset = isInView || priority
-    ? [640, 1280, 1920, 2560, 3840]
-        .map(w => `${buildUrl(src, w)} ${w}w`)
+    ? [480, 768, 1080, 1440, 1920]
+        .map(w => `${buildImageUrl(src, w, 85)} ${w}w`)
         .join(', ')
     : undefined;
-
-  const isUnsplash = src?.includes('unsplash.com');
   
-  // Calculate aspect ratio for placeholder
   const paddingBottom = aspectRatio 
     ? `${(parseFloat(aspectRatio.split('/')[1]) / parseFloat(aspectRatio.split('/')[0])) * 100}%`
     : undefined;
 
-  // Transparent placeholder bg - adapts to context (dark pages won't flash gray)
   const bgColor = placeholderColor || 'transparent';
-
-  // Skip fade transition for images that were already cached when component mounted
   const skipTransition = cachedOnMount.current;
 
   return (
@@ -136,10 +118,25 @@ export const ResponsiveImage = ({
       }}
       ref={containerRef}
     >
-      {/* Single optimized image - no duplicate loading */}
+      {/* LQIP blur placeholder — loads instantly (~200 bytes) */}
+      {lqipUrl && !skipTransition && (
+        <img
+          src={lqipUrl}
+          alt=""
+          aria-hidden="true"
+          className={`absolute inset-0 w-full h-full ${imgClassName} transition-opacity duration-500 ${
+            isLoaded ? 'opacity-0' : 'opacity-100'
+          }`}
+          style={{ filter: 'blur(20px)', transform: 'scale(1.1)' }}
+          loading="eager"
+          decoding="sync"
+        />
+      )}
+
+      {/* Main image */}
       <img
         ref={imgRef}
-        src={isInView || priority ? buildUrl(src, 1920) : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}
+        src={isInView || priority ? buildImageUrl(src, 1080, 85) : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}
         srcSet={srcset}
         sizes={sizes}
         alt={alt}
@@ -150,7 +147,7 @@ export const ResponsiveImage = ({
         decoding={skipTransition ? "sync" : "async"}
         onLoad={() => setIsLoaded(true)}
         onError={() => setIsLoaded(true)}
-        className={`absolute inset-0 w-full h-full transition-opacity ${skipTransition ? 'duration-0' : priority ? 'duration-300' : 'duration-700'} ${
+        className={`absolute inset-0 w-full h-full transition-opacity ${skipTransition ? 'duration-0' : priority ? 'duration-300' : 'duration-500'} ${
           isLoaded ? 'opacity-100' : 'opacity-0'
         } ${imgClassName}`}
         {...props}

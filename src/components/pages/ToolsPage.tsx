@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { 
-    Cloud, Shield, Globe, Map, Navigation, 
+    Cloud, Shield, Globe, Map, NavigationIcon as Navigation, 
     Menu, X, FileDown, Luggage, Heart, AlertTriangle,
     Wind, ShieldCheck, Compass, Zap, Star, Loader2, Info
-} from 'lucide-react';
-import { Mountain } from '../ui/icons';
+} from '../ui/icons';
 import { motion, AnimatePresence } from 'motion/react';
+import { PageTransition } from '../ui/PageTransition';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { hq } from '../../utils/imageUrls';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
@@ -18,6 +18,7 @@ import { TravelRealityCheck } from '../tools/TravelRealityCheck';
 import { CultureGuide } from '../tools/CultureGuide';
 import { RoadStatus } from '../tools/RoadStatus';
 import { PdfExporter } from '../tools/PdfExporter';
+import { PremiumGate } from '../ui/PremiumGate';
 
 const NomadicNavigator = () => {
     const { theme, season } = useSeason();
@@ -87,7 +88,7 @@ const NomadicNavigator = () => {
             
             if (!res.ok) throw new Error("Star-Nav Uplink Failed");
             
-            const data = await res.json();
+            const data = await res.json().catch(() => { throw new Error('Invalid response'); });
             if (data.error) throw new Error(data.error);
             setReading(data);
         } catch (e) {
@@ -251,6 +252,7 @@ export const ToolsPage = () => {
     if (!theme) return null;
 
     return (
+        <PageTransition>
         <div className="min-h-screen font-sans relative overflow-hidden transition-colors duration-1000" style={{ backgroundColor: theme.background, color: theme.text }}>
             
             <div className="absolute inset-0 z-0">
@@ -404,5 +406,6 @@ export const ToolsPage = () => {
                 }
             `}} />
         </div>
+        </PageTransition>
     );
 };

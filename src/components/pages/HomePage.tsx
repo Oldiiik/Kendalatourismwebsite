@@ -4,7 +4,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import {
   ArrowRight, Brain, Plane, Compass,
   Hotel, Wrench, ChevronDown, Send,
-  Mountain, Feather
+  Mountain, Feather, MapPin, Star, Shield, Sparkles, Info
 } from '../ui/icons';
 import {
   motion, useScroll, useTransform, useMotionValue,
@@ -12,6 +12,13 @@ import {
 } from 'motion/react';
 import { getHomeHeroUrl, buildSrcSet, HOME_HERO_URLS } from '../../utils/imageUrls';
 import { NatureMagicOverlay } from '../../components/effects/NatureMagicOverlay';
+import { PageTransition } from '../ui/PageTransition';
+import { useAppNavigate } from '../../hooks/useAppNavigate';
+import { SearchBar, type SearchParams } from '../search/SearchBar';
+import { CityGrid } from '../search/CityGrid';
+import { UserGuide } from '../ui/UserGuide';
+import { KAZAKHSTAN_CITIES, TOP_DESTINATIONS, type KZCity } from '../../data/kazakhstan-cities';
+import { useNavigate } from 'react-router';
 
 const rgba = (hex: string, a: number) => {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -49,40 +56,40 @@ const SEASON_ASSETS: Record<string, { image: string; color: string }> = {
 
 const NATURE_GALLERY = [
   {
-    src: 'https://images.unsplash.com/photo-1752418720096-3427849c1a3a?w=1400&q=80&fm=webp&auto=format&fit=crop',
+    src: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/kazygurt.jpg',
     title: { en: 'The Endless Steppe', ru: 'Бескрайняя Степь', kz: 'Шексіз Дала' },
     sub: { en: 'Where earth meets sky', ru: 'Где земля встречает небо', kz: 'Жер мен аспан қосылған жер' },
   },
   {
-    src: 'https://images.unsplash.com/photo-1694411141084-ef68d91c2bd5?w=1400&q=80&fm=webp&auto=format&fit=crop',
+    src: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/lake_balkhash.jpg',
     title: { en: 'Alpine Jewels', ru: 'Горные Сокровища', kz: 'Тау Асылдары' },
     sub: { en: 'Turquoise waters of Tian Shan', ru: 'Бирюзовые воды Тянь-Шаня', kz: 'Тянь-Шанның көгілдір сулары' },
   },
   {
-    src: 'https://images.unsplash.com/photo-1765881775363-300e01a6b61f?w=1400&q=80&fm=webp&auto=format&fit=crop',
+    src: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/summer.jpg',
     title: { en: 'Wild Spirit', ru: 'Дикий Дух', kz: 'Жабайы Рух' },
     sub: { en: 'Horses of the great plains', ru: 'Лошади великих равнин', kz: 'Ұлы жазықтардың жылқылары' },
   },
   {
-    src: 'https://images.unsplash.com/photo-1672939113761-f599cebb325f?w=1400&q=80&fm=webp&auto=format&fit=crop',
+    src: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/autumn.jpg',
     title: { en: 'Ancient Bond', ru: 'Древняя Связь', kz: 'Ежелгі Байланыс' },
     sub: { en: 'Eagle hunting tradition', ru: 'Традиция охоты с беркутом', kz: 'Бүркітшілік дәстүрі' },
   },
   {
-    src: 'https://images.unsplash.com/photo-1595124029216-a4f9d5464afa?w=1400&q=80&fm=webp&auto=format&fit=crop',
+    src: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/spring.jpg',
     title: { en: 'Infinite Night', ru: 'Бесконечная Ночь', kz: 'Шексіз Түн' },
     sub: { en: 'Stars above the steppe', ru: 'Звёзды над степью', kz: 'Дала үстіндегі жұлдыздар' },
   },
 ];
 
 const FEAT_IMAGES = {
-  ai: 'https://images.unsplash.com/photo-1645839078449-124db8a049fd?w=1000&q=80&fm=webp&auto=format&fit=crop',
-  flyover: 'https://images.unsplash.com/photo-1764588760067-906f3e74c2c3?w=1000&q=80&fm=webp&auto=format&fit=crop',
-  planner: 'https://images.unsplash.com/photo-1532594722383-b75fb8381b55?w=1000&q=80&fm=webp&auto=format&fit=crop',
-  map: 'https://images.unsplash.com/photo-1559678158-dfb59abfe9b8?w=1000&q=80&fm=webp&auto=format&fit=crop',
-  culture: 'https://images.unsplash.com/photo-1679920157758-516689ad3508?w=1000&q=80&fm=webp&auto=format&fit=crop',
-  stays: 'https://images.unsplash.com/photo-1711811468885-454760323e47?w=1000&q=80&fm=webp&auto=format&fit=crop',
-  tools: 'https://images.unsplash.com/photo-1519992599773-1e1d4029929d?w=1000&q=80&fm=webp&auto=format&fit=crop',
+  ai: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/golden_man.jpg',
+  flyover: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/lake_balkhash.jpg',
+  planner: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/kazygurt.jpg',
+  map: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/turkestan.jpg',
+  culture: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/aisha_bibi.jpg',
+  stays: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/autumn.jpg',
+  tools: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/spring.jpg',
 };
 
 
@@ -162,10 +169,13 @@ const CinematicReveal = ({ children, className = '', delay = 0 }: {
 );
 
 
-export const HomePage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
+export const HomePage = () => {
   const { theme, season } = useSeason();
   const { t, language } = useLanguage();
+  const onNavigate = useAppNavigate();
   const { scrollY } = useScroll();
+  const navigate = useNavigate();
+  const [showGuide, setShowGuide] = useState(false);
 
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
@@ -225,6 +235,7 @@ export const HomePage = ({ onNavigate }: { onNavigate: (page: string) => void })
   ];
 
   return (
+    <PageTransition>
     <div className="min-h-screen font-sans" style={{ backgroundColor: WARM.dark, color: WARM.cream, overflowX: 'clip' }}>
       <NatureMagicOverlay season={season || 'summer'} />
 
@@ -361,9 +372,105 @@ export const HomePage = ({ onNavigate }: { onNavigate: (page: string) => void })
         </motion.div>
       </header>
 
+      {/* ══════ BOOKING.COM-STYLE SEARCH SECTION ══════ */}
+      <section className="relative z-20 -mt-16 md:-mt-20 px-4 md:px-8 pb-0" style={{ backgroundColor: 'transparent' }}>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 2.2, duration: 0.8, ease: FILM_EASE }}
+        >
+          <SearchBar
+            theme={{ ...theme, background: WARM.dark, text: WARM.cream, primary: activeSeason.color, primaryForeground: WARM.darker }}
+            language={lang}
+            onSearch={(params: SearchParams) => {
+              const q = new URLSearchParams();
+              if (params.cityId) q.set('city', params.cityId);
+              if (params.checkIn) q.set('checkIn', params.checkIn);
+              if (params.checkOut) q.set('checkOut', params.checkOut);
+              if (params.guests) q.set('guests', String(params.guests));
+              navigate(`/stays?${q.toString()}`);
+            }}
+            variant="hero"
+          />
+        </motion.div>
+
+        {/* Quick navigation tabs — like booking.com top categories */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 2.6, duration: 0.6 }}
+          className="max-w-5xl mx-auto mt-6 flex items-center justify-center gap-1 flex-wrap"
+        >
+          {[
+            { icon: <Hotel className="w-3.5 h-3.5" />, label: lang === 'ru' ? 'Жильё' : lang === 'kz' ? 'Тұрғын үй' : 'Stays', page: 'stays' },
+            { icon: <Plane className="w-3.5 h-3.5" />, label: lang === 'ru' ? 'Туры' : lang === 'kz' ? 'Турлар' : 'Tours', page: 'tours' },
+            { icon: <Compass className="w-3.5 h-3.5" />, label: lang === 'ru' ? 'Места' : lang === 'kz' ? 'Мекендер' : 'Places', page: 'places' },
+            { icon: <Brain className="w-3.5 h-3.5" />, label: lang === 'ru' ? 'AI Гид' : lang === 'kz' ? 'AI Гид' : 'AI Guide', page: 'ai' },
+            { icon: <MapPin className="w-3.5 h-3.5" />, label: lang === 'ru' ? 'Карта' : lang === 'kz' ? 'Карта' : 'Map', page: 'map' },
+            { icon: <Info className="w-3.5 h-3.5" />, label: lang === 'ru' ? 'Гайд' : lang === 'kz' ? 'Гайд' : 'Guide', page: '__guide' },
+          ].map((tab) => (
+            <button
+              key={tab.page}
+              onClick={() => tab.page === '__guide' ? setShowGuide(true) : onNavigate(tab.page)}
+              className="flex items-center gap-2 px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.25em] border transition-all duration-300 hover:border-current/30"
+              style={{ borderColor: `${WARM.cream}10`, color: `${WARM.cream}70` }}
+            >
+              <span style={{ color: activeSeason.color }}>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </motion.div>
+      </section>
+
+      {/* ══════ CITY SELECTION GRID ══════ */}
+      <section className="relative py-20 md:py-28" style={{ backgroundColor: WARM.dark }}>
+        <div className="max-w-[1800px] mx-auto px-6 md:px-12">
+          <CityGrid
+            theme={{ ...theme, background: WARM.dark, text: WARM.cream, primary: activeSeason.color }}
+            language={lang}
+            onCitySelect={(city: KZCity) => {
+              navigate(`/stays?city=${city.id}`);
+            }}
+            variant="compact"
+          />
+        </div>
+      </section>
+
+      {/* ══════ TRUST STRIP — like booking.com ══════ */}
+      <section className="border-y" style={{ backgroundColor: WARM.mid, borderColor: `${WARM.cream}08` }}>
+        <div className="max-w-7xl mx-auto px-6 md:px-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px" style={{ backgroundColor: `${WARM.cream}06` }}>
+            {[
+              { icon: <Shield className="w-5 h-5" />, value: lang === 'ru' ? 'Проверено' : lang === 'kz' ? 'Тексерілді' : 'Verified', sub: lang === 'ru' ? 'Все объекты проверены' : lang === 'kz' ? 'Барлық нысандар тексерілді' : 'All properties verified' },
+              { icon: <Star className="w-5 h-5" />, value: '4.8+', sub: lang === 'ru' ? 'Средний рейтинг' : lang === 'kz' ? 'Орташа рейтинг' : 'Average rating' },
+              { icon: <MapPin className="w-5 h-5" />, value: `${KAZAKHSTAN_CITIES.length}+`, sub: lang === 'ru' ? 'Направлений' : lang === 'kz' ? 'Бағыт' : 'Destinations' },
+              { icon: <Sparkles className="w-5 h-5" />, value: lang === 'ru' ? 'AI-помощник' : lang === 'kz' ? 'AI көмекші' : 'AI Powered', sub: lang === 'ru' ? 'Умный подбор' : lang === 'kz' ? 'Ақылды таңдау' : 'Smart matching' },
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                className="flex items-center gap-4 p-6 md:p-8"
+                style={{ backgroundColor: WARM.mid }}
+              >
+                <div style={{ color: activeSeason.color }}>{item.icon}</div>
+                <div>
+                  <span className="text-sm font-black block" style={{ color: WARM.cream }}>{item.value}</span>
+                  <span className="text-[9px] uppercase tracking-[0.2em] opacity-40">{item.sub}</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <PhilosophySection id="philosophy" lang={lang} activeSeason={activeSeason} onNavigate={onNavigate} />
 
-      <div ref={hWrapRef} className="relative" style={{ height: `${galleryCount * 100}vh`, backgroundColor: WARM.dark }}>
+      <div ref={hWrapRef} className="relative"
+        style={{ height: `${galleryCount * 100}vh`, backgroundColor: WARM.dark }}
+      >
         <div
           className="h-screen w-full overflow-hidden"
           style={{
@@ -395,7 +502,7 @@ export const HomePage = ({ onNavigate }: { onNavigate: (page: string) => void })
               return (
                 <div
                   key={`gallery-${i}`}
-                  className="relative shrink-0 h-[70vh] md:h-[80vh] cursor-pointer group overflow-hidden rounded-sm"
+                  className="relative shrink-0 h-[70vh] md:h-[80vh] cursor-pointer group overflow-hidden"
                   style={{
                     width: i === 0 ? '60vw' : i % 2 === 0 ? '48vw' : '36vw',
                     opacity: 0.35 + cardProg * 0.65,
@@ -466,7 +573,7 @@ export const HomePage = ({ onNavigate }: { onNavigate: (page: string) => void })
                 transition={{ duration: 1.4, ease: FILM_EASE }}
               >
                 <img
-                  src="https://images.unsplash.com/photo-1562595706-61433957484a?w=1200&q=80&fm=webp&auto=format&fit=crop"
+                  src="https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/summer.jpg"
                   alt="Kazakhstan steppe at golden hour"
                   className="w-full h-full object-cover"
                   loading="lazy"
@@ -491,7 +598,7 @@ export const HomePage = ({ onNavigate }: { onNavigate: (page: string) => void })
                     {lang === 'ru'
                       ? 'Уникальных направлений — от каньонов Чарына до песков Алтын-Эмеля'
                       : lang === 'kz'
-                      ? 'Бірегей бағыттар — Шарын шатқалынан Алтынемел құмына дейін'
+                      ? 'Бірегей баыттар — Шарын шатқалынан Алтынемел құмына дейін'
                       : 'Unique destinations mapped — from Charyn Canyon to the sands of Altyn-Emel'}
                   </p>
                 </motion.div>
@@ -593,8 +700,88 @@ export const HomePage = ({ onNavigate }: { onNavigate: (page: string) => void })
         </div>
       </section>
 
+      {/* AI Guide Section */}
+      <section className="relative py-24 md:py-32 overflow-hidden border-y" style={{ backgroundColor: WARM.mid, borderColor: `${WARM.cream}08` }}>
+        <div className="max-w-[90rem] mx-auto px-6 md:px-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            <motion.div 
+              className="relative z-10 order-2 lg:order-1"
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, ease: FILM_EASE }}
+            >
+               <div className="flex items-center gap-3 mb-6">
+                  <Brain className="w-6 h-6" style={{ color: activeSeason.color }} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em]" style={{ color: activeSeason.color }}>
+                    {lang === 'ru' ? 'AI-гид Kendala' : lang === 'kz' ? 'Kendala AI-гиді' : 'Kendala AI Guide'}
+                  </span>
+               </div>
+               <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight leading-[0.85] mb-6" style={{ color: WARM.cream }}>
+                  {lang === 'ru' ? 'Ваш личный ' : lang === 'kz' ? 'Сіздің жеке ' : 'Your personal '} 
+                  <span style={{ color: activeSeason.color }}>{lang === 'ru' ? 'кочевник' : lang === 'kz' ? 'көшпендіңіз' : 'nomad'}</span>
+               </h2>
+               <p className="text-sm md:text-base leading-relaxed mb-8 max-w-xl" style={{ color: rgba(WARM.sand, 0.7) }}>
+                  {lang === 'ru' 
+                    ? 'Спросите AI-гида о маршрутах, традициях или погоде. Он общается как дружелюбный местный житель и знает каждый уголок Великой Степи. Никаких шаблонных ответов — только живой опыт.'
+                    : lang === 'kz'
+                    ? 'AI-гидтен маршруттар, дәстүрлер немесе ауа райы туралы сұраңыз. Ол достық пейілді жергілікті тұрғын сияқты сөйлеседі және Ұлы Даланың әр түкпірін біледі. Тек шынайы тәжірибе.'
+                    : 'Ask the AI guide about routes, traditions, or weather. It chats like a friendly local and knows every corner of the Great Steppe. No canned responses — only authentic experience.'}
+               </p>
+               <MagneticButton
+                  onClick={() => onNavigate('ai')}
+                  className="group flex items-center gap-4 py-4 px-8 border transition-all duration-500 hover:bg-white/5"
+                  style={{ borderColor: `${activeSeason.color}40`, color: WARM.cream }}
+               >
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em]">
+                    {lang === 'ru' ? 'Начать диалог' : lang === 'kz' ? 'Диалогті бастау' : 'Start dialog'}
+                  </span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform duration-500" style={{ color: activeSeason.color }} />
+               </MagneticButton>
+            </motion.div>
+            
+            <motion.div 
+              className="relative order-1 lg:order-2 h-[50vh] lg:h-[70vh] w-full overflow-hidden"
+              initial={{ opacity: 0, clipPath: 'inset(0 0 100% 0)' }}
+              whileInView={{ opacity: 1, clipPath: 'inset(0 0 0 0)' }}
+              viewport={{ once: true }}
+              transition={{ duration: 1.2, ease: FILM_EASE }}
+            >
+               <img src="https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/golden_man.jpg" alt="AI Guide Background" className="w-full h-full object-cover opacity-50" />
+               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+               <div className="absolute inset-0 mix-blend-overlay opacity-30" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }} />
+               
+               <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 flex flex-col gap-4 z-10">
+                  <motion.div 
+                    initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.4 }}
+                    className="self-start max-w-[85%] md:max-w-[70%] p-5 backdrop-blur-md border shadow-2xl"
+                    style={{ backgroundColor: `${WARM.darker}C0`, borderColor: `${WARM.cream}10` }}
+                  >
+                    <p className="text-xs md:text-sm font-medium leading-relaxed" style={{ color: WARM.cream }}>
+                       {lang === 'ru' ? 'Привет! Хочу поехать на Чарын в выходные. Что взять с собой?' : lang === 'kz' ? 'Сәлем! Демалыста Шарынға барғым келеді. Өзіммен не алуым керек?' : 'Hi! I want to go to Charyn this weekend. What should I bring?'}
+                    </p>
+                  </motion.div>
+                  <motion.div 
+                    initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 1 }}
+                    className="self-end max-w-[90%] md:max-w-[75%] p-5 backdrop-blur-md border shadow-2xl"
+                    style={{ backgroundColor: `${activeSeason.color}15`, borderColor: `${activeSeason.color}30` }}
+                  >
+                    <p className="text-xs md:text-sm font-medium leading-relaxed" style={{ color: WARM.cream }}>
+                       {lang === 'ru' ? 'Салем! Отличный выбор. Днём там жарко, а к вечеру ветер, так что захвати куртку. И главное — побольше воды! Хочешь, составлю подробный план?' : lang === 'kz' ? 'Сәлем! Тамаша таңдау. Күндіз ыстық болады, ал кешке жел, сондықтан күрте алып ал. Ең бастысы — су көп ал! Толық жоспар құрып берейін бе?' : 'Salem! Great choice. It gets hot during the day, but windy by evening, so bring a jacket. And most importantly — lots of water! Shall I make a detailed plan?'}
+                    </p>
+                  </motion.div>
+               </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       <ClosingSection lang={lang} activeSeason={activeSeason} t={t} onNavigate={onNavigate} />
+
+      {/* UserGuide Modal */}
+      <UserGuide isOpen={showGuide} onClose={() => setShowGuide(false)} />
     </div>
+    </PageTransition>
   );
 };
 
@@ -616,7 +803,7 @@ const PhilosophySection = ({ id, lang, activeSeason, onNavigate }: {
             style={{ y: textY }} 
             className="relative z-10 lg:col-span-5 order-2 lg:order-1 lg:-mr-20 pointer-events-none"
           >
-            <div className="bg-gradient-to-r from-[#2A2724]/90 to-[#2A2724]/60 backdrop-blur-md p-8 md:p-12 lg:p-16 rounded-sm border border-[#F5F1EC]/10 pointer-events-auto">
+            <div className="bg-gradient-to-r from-[#2A2724]/90 to-[#2A2724]/60 backdrop-blur-md p-8 md:p-12 lg:p-16 border border-[#F5F1EC]/10 pointer-events-auto">
               <div className="flex items-center gap-4 mb-8">
                 <div className="h-[2px] w-10" style={{ backgroundColor: activeSeason.color }} />
                 <span className="text-[10px] font-black uppercase tracking-[0.45em]" style={{ color: rgba(WARM.cream, 0.5) }}>
@@ -651,9 +838,9 @@ const PhilosophySection = ({ id, lang, activeSeason, onNavigate }: {
             </div>
           </motion.div>
 
-          <div className="lg:col-span-7 order-1 lg:order-2 overflow-hidden aspect-[4/5] md:aspect-[16/10] rounded-sm">
+          <div className="lg:col-span-7 order-1 lg:order-2 overflow-hidden aspect-[4/5] md:aspect-[16/10]">
             <motion.img
-              src="https://images.unsplash.com/photo-1770413189035-751b32c31538?w=1400&q=80&fm=webp&auto=format&fit=crop"
+              src="https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/chapan.jpg"
               alt="Nomadic yurt in the mountains"
               style={{ scale: imgScale }}
               className="w-full h-full object-cover opacity-90"
@@ -680,9 +867,9 @@ const FeatureBleedCard = ({ feat, index, lang, onNavigate }: {
   const isEven = index % 2 === 0;
 
   return (
-    <div ref={ref} className="relative w-full my-3 md:my-5">
+    <div ref={ref} id={`feat-${feat.key}`} className="relative w-full my-3 md:my-5">
       <div
-        className="max-w-[95vw] md:max-w-[90vw] mx-auto relative h-[50vh] md:h-[75vh] overflow-hidden cursor-pointer group rounded-sm"
+        className="max-w-[95vw] md:max-w-[90vw] mx-auto relative h-[50vh] md:h-[75vh] overflow-hidden cursor-pointer group"
         onClick={() => onNavigate(feat.page)}
       >
         <motion.img
@@ -721,13 +908,13 @@ const FeatureBleedCard = ({ feat, index, lang, onNavigate }: {
           <div className="flex items-center gap-3 text-[#F5F1EC]/40 group-hover:text-[#F5F1EC] transition-colors duration-700">
             <div className="h-px w-8 bg-current group-hover:w-14 transition-all duration-700" />
             <span className="text-[9px] font-black uppercase tracking-[0.25em]">
-              {lang === 'ru' ? 'Изучить' : lang === 'kz' ? 'Зерттеу' : 'Explore'}
+              {lang === 'ru' ? 'Изуить' : lang === 'kz' ? 'Зерттеу' : 'Explore'}
             </span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform duration-500" />
           </div>
         </motion.div>
 
-        <div className="absolute inset-0 border border-white/0 group-hover:border-white/[0.06] transition-colors duration-1000 pointer-events-none rounded-sm" />
+        <div className="absolute inset-0 border border-white/0 group-hover:border-white/[0.06] transition-colors duration-1000 pointer-events-none" />
       </div>
     </div>
   );
@@ -745,11 +932,12 @@ const FeatureGridCard = ({ feat, index, lang, onNavigate }: {
   return (
     <motion.div
       ref={ref}
+      id={`feat-${feat.key}`}
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-30px' }}
       transition={{ type: 'spring', ...SMOOTH_SPRING, delay: index * 0.12 }}
-      className="group cursor-pointer"
+      className="group cursor-pointer relative"
       style={{ backgroundColor: WARM.dark }}
       onClick={() => onNavigate(feat.page)}
     >
@@ -792,7 +980,7 @@ const ClosingSection = ({ lang, activeSeason, t, onNavigate }: {
     <section ref={ref} className="relative min-h-[85vh] md:min-h-screen flex flex-col items-center justify-center text-center px-6 md:px-16 overflow-hidden" style={{ backgroundColor: WARM.darker }}>
       <motion.div className="absolute inset-0" style={{ scale: bgScale }}>
         <motion.img
-          src="https://images.unsplash.com/photo-1664829431768-537613b4075e?w=1920&q=80&fm=webp&auto=format&fit=crop"
+          src="https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/kazygurt.jpg"
           alt="" className="w-full h-full object-cover opacity-60" style={{ y: bgY }} loading="lazy"
         />
       </motion.div>

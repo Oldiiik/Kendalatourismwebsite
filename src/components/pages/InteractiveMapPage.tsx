@@ -12,6 +12,7 @@ import { useJsApiLoader } from '@react-google-maps/api';
 import { supabase } from '../../utils/supabase/client';
 import { PLACES, Place } from '../data/map_places';
 import { useWishlist } from './useWishlist';
+import { useAppNavigate } from '../../hooks/useAppNavigate';
 
 const LIBRARIES = ['places', 'geometry', 'marker'] as any;
 
@@ -299,7 +300,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                         gmpClickable: true,
                     });
 
-                    marker.addListener('click', () => {
+                    marker.addListener('gmp-click', () => {
                         setSelectedPlace(place);
                     });
 
@@ -351,7 +352,6 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
         >
             <style>{`::selection { background-color: ${theme.primary}; }`}</style>
             
-            {/* --- SIDEBAR --- */}
             <div 
                 style={{ 
                     backgroundColor: theme.background + 'EE',
@@ -359,7 +359,6 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                 }}
                 className="hidden lg:flex w-[400px] flex-shrink-0 border-r flex-col z-20 shadow-2xl relative backdrop-blur-md transition-colors duration-500"
             >
-                {/* Header */}
                 <div className="p-8 pb-4">
                     <div className="flex justify-between items-center mb-6">
                          <h1 style={{ color: theme.text }} className="text-4xl font-sans font-black uppercase tracking-tighter">Kendala</h1>
@@ -375,7 +374,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                 <div className="flex-1 overflow-y-auto relative custom-scrollbar px-8 pb-8">
                     {!selectedPlace ? (
                         <div className="space-y-8">
-                            {/* Layers Selection */}
+
                             <div>
                                 <h3 style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-40">{t('map_filters')}</h3>
                                 <div className="grid grid-cols-2 gap-3">
@@ -417,7 +416,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                                 </div>
                             </div>
 
-                            {/* Places Grid */}
+
                             <div>
                                 <h3 style={{ color: theme.text }} className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-40">
                                     {t('all_places_count')} ({PLACES.filter(p => activeLayers.includes(p.type)).length})
@@ -452,7 +451,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                         </div>
                     ) : (
                         <div style={{ backgroundColor: theme.background }} className="h-full flex flex-col absolute inset-0 z-30 animate-in slide-in-from-left duration-500">
-                            {/* Image Header */}
+
                             <div className="relative h-72 shrink-0">
                                 <ResponsiveImage src={selectedPlace.image || ''} className="absolute inset-0 w-full h-full object-cover" />
                                 <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
@@ -483,9 +482,9 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                                 </div>
                             </div>
 
-                            {/* Scrollable Content */}
+
                             <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-8">
-                                {/* Description */}
+
                                 <div className="space-y-4">
                                     <div className="w-12 h-1.5 opacity-10 rounded-none" style={{ backgroundColor: theme.text }} />
                                     <p style={{ color: theme.text }} className="text-lg md:text-xl font-bold leading-relaxed opacity-80">
@@ -493,7 +492,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                                     </p>
                                 </div>
                                 
-                                {/* Coordinates */}
+
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="p-5 flex flex-col gap-1 border group transition-colors rounded-none" style={{ backgroundColor: `${theme.text}08`, borderColor: `${theme.text}08` }}>
                                         <div className="flex items-center gap-2 mb-1 opacity-40">
@@ -511,7 +510,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                                     </div>
                                 </div>
 
-                                {/* Actions */}
+
                                 <div className="space-y-3 pt-4">
                                     {streetViewChecking ? (
                                         <div className="w-full py-5 border border-dashed flex items-center justify-center gap-2 font-black uppercase tracking-widest text-[10px] opacity-40 rounded-none" style={{ borderColor: `${theme.text}30` }}>
@@ -546,6 +545,20 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                                     <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
                                     {t('places_add_to_trip')}
                                     </button>
+                                    <button 
+                                        onClick={() => {
+                                            if (selectedPlace) {
+                                                onNavigate?.(`places?id=${selectedPlace.id}`);
+                                            } else {
+                                                onNavigate?.('places');
+                                            }
+                                        }}
+                                        className="w-full py-5 border flex items-center justify-center gap-2 font-black uppercase tracking-widest text-[10px] hover:opacity-70 transition-opacity rounded-none"
+                                        style={{ borderColor: `${theme.text}30`, color: theme.text }}
+                                    >
+                                    <ArrowRight className="w-4 h-4" />
+                                    {language === 'ru' ? 'Подробнее о месте' : language === 'kz' ? 'Мекен туралы толығырақ' : 'Detailed Description'}
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -553,11 +566,11 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                 </div>
             </div>
 
-            {/* --- MAP CONTAINER --- */}
+
             <div className="flex-1 relative bg-neutral-100">
                 <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
-                {/* --- FLOATING MAP CONTROLS (all screen sizes) --- */}
+
                 <div className="absolute top-20 right-4 z-[1000] flex flex-col gap-2">
                     <button
                         onClick={() => setIsTerrainMode(!isTerrainMode)}
@@ -582,7 +595,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                     </button>
                 </div>
 
-                {/* --- MOBILE: Open sidebar button --- */}
+
                 <button
                     onClick={() => setShowMobileSidebar(true)}
                     className="lg:hidden absolute top-4 left-4 z-[1000] px-4 py-3 backdrop-blur-md shadow-xl border border-black/10 dark:border-white/10 flex items-center gap-2 rounded-none"
@@ -594,7 +607,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                     </span>
                 </button>
 
-                {/* --- MOBILE: Selected place bottom card --- */}
+
                 <AnimatePresence>
                     {selectedPlace && (
                         <motion.div
@@ -665,7 +678,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                 </AnimatePresence>
             </div>
 
-            {/* --- STREET VIEW OVERLAY --- */}
+
             <AnimatePresence>
                 {showStreetView && selectedPlace && (
                     <motion.div
@@ -678,7 +691,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                     >
                         <div ref={streetViewContainerRef} className="absolute inset-0 w-full h-full" />
                         
-                        {/* Loading overlay */}
+
                         <AnimatePresence>
                             {streetViewLoading && (
                                 <motion.div
@@ -696,7 +709,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                             )}
                         </AnimatePresence>
 
-                        {/* Error overlay */}
+
                         <AnimatePresence>
                             {streetViewError && (
                                 <motion.div
@@ -727,7 +740,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                             )}
                         </AnimatePresence>
 
-                        {/* Street View Header */}
+
                         <div className="absolute top-0 left-0 right-0 z-10 p-4 md:p-6 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent">
                             <div className="flex items-center gap-3">
                                 <Eye className="w-4 h-4 text-white/60" />
@@ -744,7 +757,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                             </button>
                         </div>
 
-                        {/* Coordinates footer */}
+
                         {!streetViewError && (
                             <div className="absolute bottom-0 left-0 right-0 z-10 p-4 md:p-6 bg-gradient-to-t from-black/70 to-transparent">
                                 <div className="flex items-center gap-4 text-white/50">
@@ -758,7 +771,7 @@ const MapInner = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
                 )}
             </AnimatePresence>
 
-            {/* --- MOBILE SIDEBAR OVERLAY --- */}
+
             <AnimatePresence>
                 {showMobileSidebar && (
                     <>
@@ -895,8 +908,9 @@ const MapLoader = ({ apiKey, children }: { apiKey: string, children: React.React
     return <>{children}</>;
 }
 
-export const InteractiveMapPage = ({ onNavigate }: { onNavigate?: (page: string) => void }) => {
+export const InteractiveMapPage = () => {
     const { t } = useLanguage();
+    const onNavigate = useAppNavigate();
     const [apiKey, setApiKey] = useState<string>("");
     const [configLoading, setConfigLoading] = useState(true);
     const { theme } = useSeason();
@@ -918,7 +932,10 @@ export const InteractiveMapPage = ({ onNavigate }: { onNavigate?: (page: string)
                         'Authorization': `Bearer ${publicAnonKey}`
                     }
                 });
-                const data = await res.json();
+                if (!res.ok) throw new Error(`Config fetch failed: ${res.status}`);
+                const text = await res.text();
+                let data: any;
+                try { data = JSON.parse(text); } catch { throw new Error('Invalid JSON from maps-config'); }
                 if (data.apiKey) {
                     setApiKey(data.apiKey);
                 } else {
@@ -964,8 +981,10 @@ export const InteractiveMapPage = ({ onNavigate }: { onNavigate?: (page: string)
     }
 
     return (
+        <PageTransition>
         <MapLoader apiKey={apiKey}>
             <MapInner onNavigate={onNavigate} />
         </MapLoader>
+        </PageTransition>
     );
 };

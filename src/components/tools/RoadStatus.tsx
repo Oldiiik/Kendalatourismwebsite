@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wind, Thermometer, AlertTriangle, CheckCircle, Search, MapPin, Loader2, RefreshCw, Droplets, Gauge, Plus, X } from 'lucide-react';
+import { Wind, Thermometer, AlertTriangle, CheckCircle, Search, MapPin, Loader2, RefreshCw, Droplets, Gauge, Plus, X } from '../ui/icons';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -32,15 +32,15 @@ export const RoadStatus = () => {
         setLoading(true);
         setError('');
         try {
-            // Pass language to the backend if supported, otherwise we handle static translations
             const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/weather?city=${cityName}&lang=${t('lang_code') || 'en'}`, {
                 headers: { 'Authorization': `Bearer ${publicAnonKey}` }
             });
-            const data = await res.json();
             if (res.ok) {
-                setWeather(data);
+                const data = await res.json().catch(() => null);
+                if (data) setWeather(data);
+                else setError(t('failed_fetch') || 'Invalid response');
             } else {
-                setError(data.error || t('failed_fetch') || 'Failed to fetch');
+                setError(t('failed_fetch') || 'Failed to fetch');
             }
         } catch (e) {
             setError(t('connection_error') || 'Connection error');
@@ -153,7 +153,6 @@ export const RoadStatus = () => {
                     ) : weather ? (
                         <motion.div key="content" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 md:space-y-6 pb-6">
                             
-                            {/* Difficulty Block — compact */}
                             <div className={`p-5 md:p-6 border-2 text-center space-y-2 relative overflow-hidden group ${getDifficultyColor(weather.difficulty)}`}>
                                 <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <AlertTriangle className="w-16 h-16 -mr-4 -mt-4" />
@@ -165,7 +164,6 @@ export const RoadStatus = () => {
                                 <p className="text-xs font-serif italic relative z-10 opacity-80">{weather.warning}</p>
                             </div>
 
-                            {/* Weather Stats — 3 compact blocks */}
                             <div className="grid grid-cols-3 gap-2 md:gap-3">
                                 <div className="p-4 md:p-5 border space-y-3 group hover:border-current/30 transition-all" style={{ borderColor: `${theme.text}10` }}>
                                     <div className="flex items-center gap-2 opacity-40">
@@ -201,7 +199,6 @@ export const RoadStatus = () => {
                                 </div>
                             </div>
 
-                            {/* Pressure row — compact */}
                             <div className="p-4 md:p-5 border flex items-center gap-4 group hover:bg-white/5 transition-all" style={{ borderColor: `${theme.text}10` }}>
                                 <div className="p-2.5 rounded-full" style={{ backgroundColor: `${theme.text}08` }}><Gauge className="w-5 h-5" /></div>
                                 <div className="flex-1">
@@ -214,7 +211,6 @@ export const RoadStatus = () => {
                                 </div>
                             </div>
 
-                            {/* Emergency footer — compact */}
                             <div className="p-4 md:p-5 space-y-3" style={{ backgroundColor: theme.text, color: theme.background }}>
                                 <div className="flex items-center gap-2">
                                     <div className="p-1.5 bg-emerald-500/20 rounded-full"><CheckCircle className="w-4 h-4 text-emerald-500" /></div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileDown, Download, ShieldCheck, Map as MapIcon, Loader2, MapPin } from 'lucide-react';
+import { FileDown, Download, ShieldCheck, Map as MapIcon, Loader2, MapPin } from '../ui/icons';
 import { jsPDF } from 'jspdf';
 import { motion } from 'motion/react';
 import { useSeason } from '../../contexts/SeasonContext';
@@ -39,8 +39,8 @@ export const PdfExporter = () => {
                 });
                 
                 if (protoRes.ok) {
-                    const data = await protoRes.json();
-                    if (!data.error) {
+                    const data = await protoRes.json().catch(() => null);
+                    if (data && !data.error) {
                         protocolData = { ...protocolData, ...data };
                     }
                 }

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap&subset=cyrillic,cyrillic-ext');
+@import url('https://fonts.googleapis.com/css2?family=Nothing+You+Could+Do&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -8,6 +9,7 @@
   --font-serif: "Montserrat", "sans-serif";
   --font-display: "Montserrat", "sans-serif";
   --font-mono: "Montserrat", "sans-serif";
+  --font-script: "Nothing You Could Do", "cursive";
 }
 
 :root {
@@ -151,37 +153,31 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent white flash before React hydrates */
+    background-color: #0f2e22;
+  }
+
+  #root {
+    position: relative;
   }
 }
 
-/* Custom Animation Keyframes */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/**
- * Base typography.
- */
+/* Smooth global transitions for interactive elements */
 @layer base {
-  :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
-    h1, h2, h3, h4, p, label, button, input {
-      line-height: 1.5;
-    }
-    
-    h1 { font-size: var(--text-2xl); font-weight: bold; }
-    h2 { font-size: var(--text-xl); font-weight: bold; }
-    h3 { font-size: var(--text-lg); font-weight: bold; }
-    h4 { font-size: var(--text-base); font-weight: bold; }
-    p { font-size: var(--text-base); font-weight: normal; }
+  a, button, input, select, textarea {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  img, video {
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 
+/* Smooth scroll behavior */
 html {
+  scroll-behavior: smooth;
   font-size: var(--font-size);
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */

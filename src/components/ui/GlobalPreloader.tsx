@@ -13,7 +13,7 @@ const preloadImage = (src: string, timeout = 8000): Promise<boolean> =>
   });
 
 const addConnectionHints = () => {
-  const domains = ['https://images.unsplash.com'];
+  const domains = ['https://wrxtnfwckeqhwfjsaifh.supabase.co'];
   domains.forEach(domain => {
     if (!document.querySelector(`link[rel="preconnect"][href="${domain}"]`)) {
       const preconnect = document.createElement('link');
@@ -71,48 +71,58 @@ export const GlobalPreloader = ({ onComplete }: GlobalPreloaderProps) => {
     const low = manifest.filter(e => e.priority === 'low');
 
     const processEntry = async (entry: PreloadEntry) => {
-      await preloadImage(entry.url, entry.priority === 'critical' ? 8000 : 5000);
+      await preloadImage(entry.url, entry.priority === 'critical' ? 3000 : 2000);
       loaded++;
       setProgress(Math.round((loaded / total) * 100));
     };
 
     critical.forEach(entry => addPreloadHint(entry.url));
 
-    if (critical.length) await Promise.all(critical.map(processEntry));
-    if (high.length) await Promise.all(high.map(processEntry));
+    try {
+      if (critical.length) await Promise.all(critical.map(processEntry));
 
-    if (medium.length) {
-      await Promise.race([
-        Promise.all(medium.map(processEntry)),
-        new Promise(r => setTimeout(r, 3500)),
-      ]);
+      // Don't block on high/medium — fire and forget
+      if (high.length) {
+        Promise.all(high.map(processEntry)).catch(() => {});
+      }
+
+      if (medium.length) {
+        Promise.all(medium.map(processEntry)).catch(() => {});
+      }
+    } catch {
+      // Swallow any errors — proceed to completion
     }
 
-    // Fill progress to 100% accounting for any timed-out medium images
     loaded = Math.max(loaded, total - low.length);
     setProgress(100);
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 200));
     
     setIsFinished(true);
 
     setTimeout(() => {
         onComplete();
-    }, 1200);
+    }, 600);
 
     low.forEach(entry => preloadImage(entry.url, 12000));
   }, [onComplete]);
 
   useEffect(() => {
     runPreload();
+    // Safety: force complete after 6s no matter what
+    const safetyTimer = setTimeout(() => {
+      if (!hasStarted.current) return;
+      setProgress(100);
+      setIsFinished(true);
+      setTimeout(() => onComplete(), 200);
+    }, 6000);
+    return () => clearTimeout(safetyTimer);
   }, [runPreload]);
 
-  // Nature-inspired colors
-  const deepGreen = "#0f2e22"; // Deep forest
-  const earthGold = "#d4af37"; // Golden steppe
+  const deepGreen = "#0f2e22";
+  const earthGold = "#d4af37";
 
   return (
     <div className="fixed inset-0 z-[9999] pointer-events-none flex flex-col items-center justify-center">
-        {/* Cinematic Curtain Reveal - Nature Themed */}
         <motion.div
             initial={{ y: 0 }}
             animate={isFinished ? { y: '-100%' } : { y: 0 }}
@@ -120,8 +130,7 @@ export const GlobalPreloader = ({ onComplete }: GlobalPreloaderProps) => {
             className="absolute top-0 left-0 right-0 h-[50vh] z-10 border-b border-white/5"
             style={{ backgroundColor: deepGreen }}
         >
-            {/* Subtle organic texture/noise */}
-            <div className="absolute inset-0 opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }} />
         </motion.div>
 
         <motion.div
@@ -131,19 +140,16 @@ export const GlobalPreloader = ({ onComplete }: GlobalPreloaderProps) => {
             className="absolute bottom-0 left-0 right-0 h-[50vh] z-10 border-t border-white/5"
             style={{ backgroundColor: deepGreen }}
         >
-             <div className="absolute inset-0 opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+             <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n2)'/%3E%3C/svg%3E")` }} />
         </motion.div>
 
-        {/* Content Wrapper */}
         <motion.div
             className="relative z-20 flex flex-col items-center justify-center"
             initial={{ opacity: 1 }}
             animate={isFinished ? { opacity: 0 } : { opacity: 1 }}
             transition={{ duration: 0.8 }}
         >
-             {/* Brand Logo - Breathing Effect */}
             <div className="mb-16 relative">
-                {/* Sun Glow Behind Logo */}
                 <motion.div 
                     className="absolute inset-0 blur-3xl rounded-full"
                     style={{ backgroundColor: earthGold }}
@@ -155,13 +161,11 @@ export const GlobalPreloader = ({ onComplete }: GlobalPreloaderProps) => {
                     Kendala
                 </h1>
                 
-                {/* Nature Subtitle */}
                 <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.5em] text-center mt-4 text-[#d4af37] opacity-80">
                     Expedition
                 </p>
             </div>
 
-            {/* Minimal Progress Line (Organic) */}
             <div className="w-48 h-[1px] bg-white/10 overflow-hidden relative">
                 <motion.div
                     className="absolute inset-y-0 left-0"
@@ -172,7 +176,6 @@ export const GlobalPreloader = ({ onComplete }: GlobalPreloaderProps) => {
                 />
             </div>
             
-            {/* Minimal Percentage - No technical text */}
             <div className="mt-4 text-[10px] font-mono font-medium text-white/30 tracking-widest">
                 {progress}%
             </div>

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, useInView, useAnimation, Variant } from 'motion/react';
 
+const SNAP = [0.16, 1, 0.3, 1] as const;
+
 interface RevealProps {
   children: React.ReactNode;
   width?: "fit-content" | "100%";
@@ -13,13 +15,13 @@ interface RevealProps {
 export const Reveal = ({ 
   children, 
   width = "fit-content", 
-  delay = 0.25, 
-  duration = 0.5,
-  yOffset = 75,
+  delay = 0.06, 
+  duration = 0.35,
+  yOffset = 24,
   className = ""
 }: RevealProps) => {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const isInView = useInView(ref, { once: true, margin: "-40px" });
   const mainControls = useAnimation();
 
   useEffect(() => {
@@ -37,7 +39,8 @@ export const Reveal = ({
         }}
         initial="hidden"
         animate={mainControls}
-        transition={{ duration, delay, ease: [0.25, 0.25, 0.25, 0.75] }}
+        transition={{ duration, delay, ease: SNAP }}
+        style={{ willChange: 'opacity, transform' }}
       >
         {children}
       </motion.div>
@@ -48,16 +51,17 @@ export const Reveal = ({
 export const FadeIn = ({ 
     children, 
     delay = 0, 
-    duration = 0.8, 
+    duration = 0.35, 
     className = "" 
 }: { children: React.ReactNode, delay?: number, duration?: number, className?: string }) => {
     return (
         <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration, delay, ease: "easeOut" }}
+            initial={{ opacity: 0, y: 6 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-30px" }}
+            transition={{ duration, delay, ease: SNAP }}
             className={className}
+            style={{ willChange: 'opacity, transform' }}
         >
             {children}
         </motion.div>
@@ -71,11 +75,12 @@ export const ScaleIn = ({
 }: { children: React.ReactNode, delay?: number, className?: string }) => {
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
+            viewport={{ once: true, margin: "-30px" }}
+            transition={{ duration: 0.3, delay, ease: SNAP }}
             className={className}
+            style={{ willChange: 'opacity, transform' }}
         >
             {children}
         </motion.div>

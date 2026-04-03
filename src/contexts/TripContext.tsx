@@ -34,7 +34,6 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
     const { language } = useLanguage();
     const { savedTrips, isLoading, fetchTrips, saveTrip, deleteTrip: storageDeleteTrip } = useTripStorage();
 
-    // Default Empty Trip
     const defaultTrip: Trip = {
         id: '',
         title: '',
@@ -54,16 +53,13 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
     const [dayCount, setDayCount] = useState(1);
     const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
 
-    // Refs to always read latest state (fixes stale closure in saveCurrentTrip)
     const stateRef = useRef({ tripTitle, destination, itinerary, dayCount, currentTripId });
     stateRef.current = { tripTitle, destination, itinerary, dayCount, currentTripId };
 
-    // Init fetch
     useEffect(() => {
         fetchTrips();
     }, [fetchTrips]);
 
-    // Construct current trip object for consumers
     const currentTrip: Trip = {
         ...defaultTrip,
         id: currentTripId || '',
@@ -94,7 +90,6 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const addTourToTrip = useCallback((tour: Tour, startDay: number, targetTripId?: string | 'NEW') => {
-        // Determine which trip state to operate on
         let baseItinerary = stateRef.current.itinerary;
         let baseDayCount = stateRef.current.dayCount;
         
@@ -147,7 +142,6 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
         toast.success(`Added ${tour.title[language]} to Day ${startDay}`);
     }, [createNewTrip, savedTrips, language]);
 
-    // saveCurrentTrip reads from ref to avoid stale closures
     const saveCurrentTrip = useCallback(async (silent: boolean = false) => {
         const { tripTitle: title, destination: dest, itinerary: items, dayCount: days, currentTripId: id } = stateRef.current;
         
@@ -167,7 +161,6 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [saveTrip]);
 
-    // Auto-save effect
     useEffect(() => {
         const timer = setTimeout(() => {
             const { currentTripId, tripTitle, itinerary } = stateRef.current;

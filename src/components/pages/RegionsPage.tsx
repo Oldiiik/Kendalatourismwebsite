@@ -2,8 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useWishlist } from './useWishlist';
+import { useAppNavigate } from '../../hooks/useAppNavigate';
 import { PLACES, Place } from '../data/map_places';
 import { motion, AnimatePresence } from 'motion/react';
+import { PageTransition } from '../ui/PageTransition';
 import { ArrowRight, Wind, Mountain, Droplets, Sun, Thermometer, Heart, X } from '../ui/icons';
 import { ResponsiveImage } from '../ui/ResponsiveImage';
 import { REGION_HERO_URLS } from '../../utils/imageUrls';
@@ -111,6 +113,7 @@ const RegionsPageComponent = ({ onNavigate }: { onNavigate?: (page: string) => v
     const activeData = regions.find(r => r.id === activeRegion);
 
     return (
+        <PageTransition>
         <div className="h-screen w-full flex flex-col overflow-hidden bg-black text-white font-sans">
 
             {/* === DESKTOP: Horizontal Accordion === */}
@@ -345,7 +348,11 @@ const RegionsPageComponent = ({ onNavigate }: { onNavigate?: (page: string) => v
                 })}
             </div>
         </div>
+        </PageTransition>
     );
 };
 
-export const RegionsPage = RegionsPageComponent;
+export const RegionsPage = () => {
+    const onNavigate = useAppNavigate();
+    return <RegionsPageComponent onNavigate={onNavigate} />;
+};

@@ -10,6 +10,7 @@ import {
 import { localizedData } from '../../data_localized';
 import { hq } from '../../utils/imageUrls';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
+import { PageTransition } from '../ui/PageTransition';
 
 const uiLabels: Record<string, any> = {
   en: { views: 'Views', likes: 'Likes', tags: 'Related Tags', share: 'Share', live: 'LIVE', readTime: 'min read', search: 'Search stories...', noResults: 'No stories found', readMore: 'Read Full Story', featured: 'Featured', keyFacts: 'Key Facts', photoGallery: 'Gallery', moreStories: 'More from Kendala', backToAll: 'All Stories', minutes: 'min', scrollDown: 'Scroll to explore', loadMore: 'Load More Stories' },
@@ -1121,7 +1122,7 @@ const ArticleDetail = ({ article, lang, labels, theme, onClose }: any) => {
         className="absolute inset-0 md:inset-x-[5vw] md:top-[3vh] md:bottom-0 bg-white overflow-y-auto shadow-2xl"
         style={{ background: theme.background, color: theme.text }}
       >
-        {/* Close */}
+
         <button
           onClick={onClose}
           className="fixed top-20 right-4 md:top-8 md:right-[7vw] z-50 p-4 bg-black hover:bg-red-600 text-white transition-colors cursor-pointer rounded-none shadow-xl"
@@ -1129,7 +1130,7 @@ const ArticleDetail = ({ article, lang, labels, theme, onClose }: any) => {
           <X className="w-5 h-5" />
         </button>
 
-        {/* Hero */}
+
         <div className="relative h-[60vh] md:h-[75vh] w-full overflow-hidden">
           <ResponsiveImage src={hq(article.image)} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-transparent" />
@@ -1166,14 +1167,14 @@ const ArticleDetail = ({ article, lang, labels, theme, onClose }: any) => {
           </div>
         </div>
 
-        {/* Body */}
+
         <div className="max-w-5xl mx-auto px-6 md:px-12 py-16 md:py-24">
-          {/* Summary */}
+
           <p className="text-xl md:text-3xl font-medium leading-relaxed opacity-90 mb-16 border-l-4 pl-8" style={{ borderColor: theme.primary }}>
             {article.summary?.[lang] || article.summary?.en}
           </p>
 
-          {/* Engagement bar */}
+
           <div className="flex items-center justify-between border-y py-6 mb-16 opacity-60" style={{ borderColor: `${theme.text}20` }}>
             <div className="flex gap-8 text-sm font-bold uppercase tracking-widest">
               <span className="flex items-center gap-3"><Eye className="w-4 h-4" /> {article.stats.views}</span>
@@ -1185,7 +1186,7 @@ const ArticleDetail = ({ article, lang, labels, theme, onClose }: any) => {
             </div>
           </div>
 
-          {/* Sections */}
+
           {sections.length > 0 ? (
             sections.map((section: any, idx: number) => (
               <div key={idx} className="mb-20">
@@ -1199,7 +1200,7 @@ const ArticleDetail = ({ article, lang, labels, theme, onClose }: any) => {
                   ))}
                 </div>
 
-                {/* Quote (Only for first section if exists in article) */}
+
                 {idx === 0 && article.quote && (
                   <blockquote className="my-16 relative p-8 md:p-12 bg-current/5 border-l-8" style={{ borderColor: theme.primary }}>
                     <Sparkles className="absolute right-8 top-8 w-8 h-8 opacity-20" />
@@ -1212,7 +1213,7 @@ const ArticleDetail = ({ article, lang, labels, theme, onClose }: any) => {
                   </blockquote>
                 )}
                 
-                {/* Stats Grid - Only show for first section if article has stats */}
+
                 {idx === 0 && article.stats && article.stats.length > 0 && (
                   <div className="my-16 border-2 border-black/5 p-8 bg-black/[0.02]" style={{ borderColor: `${theme.text}10` }}>
                     <div className="flex items-center gap-4 mb-8">
@@ -1243,7 +1244,7 @@ const ArticleDetail = ({ article, lang, labels, theme, onClose }: any) => {
             </div>
           )}
 
-          {/* Gallery */}
+
           {gallery.length > 1 && (
             <div className="mt-20 mb-12">
               <h3 className="text-xs font-black uppercase tracking-[0.4em] opacity-40 mb-8 border-b pb-4">{labels.photoGallery}</h3>
@@ -1323,14 +1324,15 @@ export const NewsPage = () => {
   if (!theme) return null;
 
   return (
+    <PageTransition>
     <div className="min-h-screen font-sans relative" style={{ background: theme.background, color: theme.text }}>
 
-      {/* Magic Particles Background */}
+
       <MagicParticles theme={theme} />
 
-      {/* ─── HERO SECTION ─── */}
+
       <div className="relative z-10 min-h-[85vh] flex flex-col justify-end overflow-hidden border-b" style={{ borderColor: `${theme.text}10` }}>
-        {/* Cinematic Hero Image */}
+
         <motion.div className="absolute inset-0" style={{ y: heroParallax }}>
             <div className="absolute inset-0 bg-black z-0" />
             <ResponsiveImage 
@@ -1529,6 +1531,7 @@ export const NewsPage = () => {
       </AnimatePresence>
 
     </div>
+    </PageTransition>
   );
 };
 

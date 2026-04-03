@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 
 export type Season = 'winter' | 'spring' | 'summer' | 'autumn' | null;
 export type ThemeVariant = 'default' | 'dark' | 'vibrant' | 'monochrome';
@@ -118,9 +118,15 @@ export const SeasonProvider = ({ children }: { children: ReactNode }) => {
     } catch {}
     return 'default';
   });
-  const [vfxEnabled, setVfxEnabled] = useState(true);
+  const [vfxEnabled, setVfxEnabledState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('kendala_vfx');
+      if (saved) return saved === 'true';
+    } catch {}
+    return true;
+  });
 
-  const setSeason = (s: Season) => {
+  const setSeason = useCallback((s: Season) => {
     setSeasonState(s);
     try {
       if (s) {
@@ -129,14 +135,21 @@ export const SeasonProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem('kendala_season');
       }
     } catch {}
-  };
+  }, []);
 
-  const setThemeVariant = (v: ThemeVariant) => {
+  const setThemeVariant = useCallback((v: ThemeVariant) => {
     setThemeVariantState(v);
     try {
       localStorage.setItem('kendala_theme_variant', v);
     } catch {}
-  };
+  }, []);
+
+  const setVfxEnabled = useCallback((enabled: boolean) => {
+    setVfxEnabledState(enabled);
+    try {
+      localStorage.setItem('kendala_vfx', String(enabled));
+    } catch {}
+  }, []);
 
   const theme = season ? seasonThemes[season][themeVariant] : null;
 
@@ -162,8 +175,13 @@ export const SeasonProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [theme, themeVariant]);
 
+  const contextValue = useMemo(
+    () => ({ season, setSeason, themeVariant, setThemeVariant, theme, vfxEnabled, setVfxEnabled }),
+    [season, setSeason, themeVariant, setThemeVariant, theme, vfxEnabled, setVfxEnabled]
+  );
+
   return (
-    <SeasonContext.Provider value={{ season, setSeason, themeVariant, setThemeVariant, theme, vfxEnabled, setVfxEnabled }}>
+    <SeasonContext.Provider value={contextValue}>
       {children}
     </SeasonContext.Provider>
   );

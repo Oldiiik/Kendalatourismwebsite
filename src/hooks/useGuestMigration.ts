@@ -55,7 +55,7 @@ export const useGuestMigration = (): MigrationStatus => {
           })
         }).then(res => {
             if (!res.ok) throw new Error(`Failed to upload trip: ${trip.title}`);
-            return res.json();
+            return res.json().catch(() => ({}));
         });
       });
 

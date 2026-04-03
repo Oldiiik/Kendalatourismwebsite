@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckSquare, Square, Luggage, Plus, Trash2, Scale, Zap, Info } from 'lucide-react';
+import { CheckSquare, Square, Luggage, Plus, Trash2, Scale, Zap, Info } from '../ui/icons';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useLanguage } from '../../contexts/LanguageContext';

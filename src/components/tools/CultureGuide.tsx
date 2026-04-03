@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageCircle, Coffee, Heart, Volume2, Info, CheckCircle2, AlertCircle, BookOpen } from 'lucide-react';
+import { MessageCircle, Coffee, Heart, Volume2, Info, CheckCircle2, AlertCircle, BookOpen } from '../ui/icons';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useLanguage } from '../../contexts/LanguageContext';

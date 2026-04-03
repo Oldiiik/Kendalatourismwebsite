@@ -7,13 +7,18 @@ import {
     Calendar, Clock, DollarSign, X, Trash2, 
     ChevronDown, RefreshCw, GripVertical,
     Sun, Moon, Sunrise, Tent, MapPin, 
-    ArrowRight, Plus, Save, Feather, Zap, Compass, Wind, Mountain, Square, Play
+    ArrowRight, Plus, Save, Feather, Zap, Compass, Wind, Mountain, Square, Play, Share2, Users, Mail, Check, Camera
 } from '../ui/icons';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
+import { PageTransition } from '../ui/PageTransition';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { Typewriter } from '../ui/Typewriter';
 import { Trip, ItineraryItem } from './plannerTypes';
 import { getHomeHeroUrl } from '../../utils/imageUrls';
+import { supabase } from '../../utils/supabase/client';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { toast } from 'sonner@2.0.3';
+import { usePremium } from '../../contexts/PremiumContext';
 
 import { TripRouteFlyover } from '../map/TripRouteFlyover';
 
@@ -22,7 +27,6 @@ export const TripPlannerPage = () => {
   const { language, t } = useLanguage();
   const { notify } = useNotification();
   
-  // Use Trip Context
   const { 
       itinerary, setItinerary, 
       tripTitle, setTripTitle,
@@ -33,12 +37,16 @@ export const TripPlannerPage = () => {
       refreshTrips
   } = useTrip();
 
-  // UI State
   const [showTripSelector, setShowTripSelector] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [isAddingActivity, setIsAddingActivity] = useState(false);
   const [showFlyover, setShowFlyover] = useState(false);
   const [editingActivity, setEditingActivity] = useState<ItineraryItem | null>(null);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [publishing, setPublishing] = useState(false);
   
   const [newActivity, setNewActivity] = useState<Partial<ItineraryItem>>({
     time: '12:00',
@@ -46,10 +54,10 @@ export const TripPlannerPage = () => {
     cost: 0,
     activity: '',
     location: '',
-    notes: ''
+    notes: '',
+    image: ''
   });
 
-  // AI State
   const [aiState, setAiState] = useState<'idle' | 'active' | 'complete'>('idle');
   const [aiMessage, setAiMessage] = useState('');
 
@@ -68,22 +76,18 @@ export const TripPlannerPage = () => {
     }
   }, [language]);
 
-  // Refresh saved trips on mount to ensure they are up-to-date
   useEffect(() => {
     refreshTrips();
   }, []);
 
-  // Auto-launch flyover when navigated from AI Assistant with the flag
   useEffect(() => {
     const shouldFly = sessionStorage.getItem('kendala_launch_flyover');
     if (shouldFly === 'true') {
       sessionStorage.removeItem('kendala_launch_flyover');
-      // Launch immediately — the flyover component handles its own loading phase
       setShowFlyover(true);
     }
   }, []);
 
-  // Fallback: if itinerary wasn't ready when flag was checked, watch for it
   useEffect(() => {
     const pending = sessionStorage.getItem('kendala_launch_flyover_pending');
     if (pending === 'true' && itinerary.length > 0) {
@@ -99,7 +103,13 @@ export const TripPlannerPage = () => {
     notify(`${t('trip_switched')}: ${trip.destination || trip.title}`, "success");
   };
 
+  const { incrementTrips, isPremium: isPremiumUser } = usePremium();
+
   const handleCreateNewTrip = () => {
+    if (!incrementTrips()) {
+      toast.error(t('premium_required') || 'Free plan limited to 3 trips. Upgrade to Nomad for unlimited trips.');
+      return;
+    }
     createNewTrip();
     setSelectedDay(1);
     notify(t('new_trip_created'), "action");
@@ -121,22 +131,17 @@ export const TripPlannerPage = () => {
     
     setAiState('active');
     
-    // Helper to pause
     const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // Step 1: Analysis
     setAiMessage(`Analyzing travel patterns for ${destination}...`);
     await wait(2500);
 
-    // Step 2: Search
     setAiMessage(`Finding top-rated local experiences and dining spots...`);
     await wait(2500);
 
-    // Step 3: Construction
     setAiMessage(`Constructing your personalized ${season || 'journey'} itinerary...`);
     await wait(2500);
 
-    // Mock AI generation
     const newItems: ItineraryItem[] = [
         {
             id: crypto.randomUUID(),
@@ -174,7 +179,6 @@ export const TripPlannerPage = () => {
     setAiState('complete');
     notify("Itinerary updated!", "success");
     
-    // Close after a moment
     await wait(1500);
     setAiState('idle');
   };
@@ -195,7 +199,6 @@ export const TripPlannerPage = () => {
 
   const totalCost = itinerary.reduce((sum, item) => sum + item.cost, 0);
   
-  // Create array of days based on dayCount
   const days = Array.from({ length: Math.max(dayCount, 1) }, (_, i) => i + 1);
 
   const dayItems = itinerary.filter(item => item.day === selectedDay).sort((a, b) => a.time.localeCompare(b.time));
@@ -219,7 +222,8 @@ export const TripPlannerPage = () => {
       cost: item.cost,
       activity: item.activity,
       location: item.location,
-      notes: item.notes
+      notes: item.notes,
+      image: item.image
     });
     setIsAddingActivity(true);
   };
@@ -237,7 +241,8 @@ export const TripPlannerPage = () => {
               type: newActivity.type as any || 'activity',
               cost: Number(newActivity.cost) || 0,
               location: newActivity.location || '',
-              notes: newActivity.notes || ''
+              notes: newActivity.notes || '',
+              image: newActivity.image || undefined
             }
           : item
       ));
@@ -251,12 +256,13 @@ export const TripPlannerPage = () => {
           type: newActivity.type as any || 'activity',
           cost: Number(newActivity.cost) || 0,
           location: newActivity.location || '',
-          notes: newActivity.notes || ''
+          notes: newActivity.notes || '',
+          image: newActivity.image || undefined
       }]);
     }
     
     setIsAddingActivity(false);
-    setNewActivity({ time: '12:00', type: 'activity', cost: 0, activity: '', location: '', notes: '' });
+    setNewActivity({ time: '12:00', type: 'activity', cost: 0, activity: '', location: '', notes: '', image: '' });
   };
 
   const handleReorderItems = (newOrder: ItineraryItem[]) => {
@@ -272,9 +278,9 @@ export const TripPlannerPage = () => {
   };
 
   return (
+    <PageTransition>
     <div className="min-h-screen font-sans relative flex flex-col bg-neutral-50" style={{ background: theme.background, color: theme.text }}>
       
-      {/* --- HERO HEADER --- */}
       <div className="relative z-10 h-[40vh] md:h-[45vh] min-h-[320px] md:min-h-[450px] w-full border-b" style={{ borderColor: `${theme.text}20` }}>
           <div className="absolute inset-0 overflow-hidden">
             <motion.div 
@@ -333,9 +339,7 @@ export const TripPlannerPage = () => {
                    </div>
 
                    <div className="flex items-center pt-1 md:pt-2 relative">
-                        {/* Connected button bar */}
                         <div className="flex items-stretch w-full border border-white/20 backdrop-blur-md shadow-xl">
-                            {/* Saved Trips */}
                             <div className="relative">
                                 <button 
                                     onClick={() => { setShowTripSelector(!showTripSelector); if (!showTripSelector) refreshTrips(); }} 
@@ -372,7 +376,6 @@ export const TripPlannerPage = () => {
                                 </AnimatePresence>
                             </div>
 
-                            {/* Magic Plan */}
                             <button 
                                 onClick={handleAutoGenerate}
                                 className="px-3 md:px-5 py-2.5 md:py-3 bg-white/5 text-amber-400 hover:bg-white/10 transition-all flex items-center gap-2 text-[10px] md:text-xs font-black uppercase tracking-widest border-r border-white/20"
@@ -382,7 +385,6 @@ export const TripPlannerPage = () => {
                                 <span className="hidden lg:inline">{t('planner_magic')}</span>
                             </button>
 
-                            {/* Play Route */}
                             <button 
                                 onClick={() => setShowFlyover(true)}
                                 className="px-3 md:px-6 py-2.5 md:py-3 bg-[#D4AF37] text-white hover:bg-[#E5C048] transition-all flex items-center gap-2 text-[10px] md:text-xs font-black uppercase tracking-widest border-r border-[#D4AF37]/50"
@@ -391,7 +393,6 @@ export const TripPlannerPage = () => {
                                 <span className="hidden md:inline">{t('planner_route')}</span>
                             </button>
 
-                            {/* Save */}
                             <button 
                                 onClick={handleSaveItinerary} 
                                 disabled={isLoading}
@@ -399,16 +400,32 @@ export const TripPlannerPage = () => {
                             >
                                 {isLoading ? t('saving') : t('save_trip')} <Save className="w-3.5 h-3.5" />
                             </button>
+
+                            <button
+                                onClick={() => setShowInviteModal(true)}
+                                className="px-3 md:px-4 py-2.5 md:py-3 bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 text-[10px] md:text-xs font-black uppercase tracking-widest border-l border-white/20"
+                                title={language === 'ru' ? 'Пригласить' : language === 'kz' ? 'Шақыру' : 'Invite'}
+                            >
+                                <Users className="w-3.5 h-3.5" />
+                                <span className="hidden lg:inline">{language === 'ru' ? 'Пригласить' : language === 'kz' ? 'Шақыру' : 'Invite'}</span>
+                            </button>
+
+                            <button
+                                onClick={() => setShowPublishModal(true)}
+                                className="px-3 md:px-4 py-2.5 md:py-3 bg-emerald-500/80 text-white hover:bg-emerald-500 transition-all flex items-center gap-2 text-[10px] md:text-xs font-black uppercase tracking-widest"
+                                title={language === 'ru' ? 'Опубликовать' : language === 'kz' ? 'Жариялау' : 'Publish'}
+                            >
+                                <Share2 className="w-3.5 h-3.5" />
+                                <span className="hidden lg:inline">{language === 'ru' ? 'Опубликовать' : language === 'kz' ? 'Жариялау' : 'Publish'}</span>
+                            </button>
                         </div>
                    </div>
                </div>
           </div>
       </div>
 
-      {/* --- MAIN CONTENT --- */}
       <div className="flex flex-col lg:flex-row flex-1 max-w-[1920px] w-full mx-auto relative z-[5]">
           
-          {/* LEFT: DAYS NAVIGATION */}
           <div className="lg:w-80 flex-shrink-0 border-b lg:border-b-0 lg:border-r" style={{ borderColor: `${theme.text}10` }}>
               <div className="lg:sticky lg:top-0 h-full lg:max-h-screen overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto pt-2 px-4 pb-4 lg:pt-4 lg:px-8 lg:pb-8 space-y-3 lg:space-y-5">
                   <div className="flex items-center justify-between mb-1 lg:mb-4">
@@ -450,9 +467,7 @@ export const TripPlannerPage = () => {
               </div>
           </div>
 
-          {/* RIGHT: TIMELINE */}
           <div className="flex-1 min-h-[400px] lg:min-h-[600px] flex flex-col" style={{ backgroundColor: theme.background }}>
-                {/* Header */}
                 <div className="p-5 pr-16 md:p-12 border-b flex justify-between items-center sticky top-0 z-30 backdrop-blur-md" style={{ borderColor: `${theme.text}10`, backgroundColor: `${theme.background}cc` }}>
                     <div>
                         <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] md:tracking-[0.4em] opacity-40 block mb-1 md:mb-2">{t('itinerary')}</span>
@@ -467,9 +482,7 @@ export const TripPlannerPage = () => {
                     </button>
                 </div>
 
-                {/* List */}
                 <div className="flex-1 p-4 md:p-16 relative">
-                    {/* Vertical Timeline Line */}
                     <div className="absolute left-[2.5rem] md:left-[5.25rem] top-0 bottom-0 w-px bg-current opacity-10" />
 
                     {dayItems.length === 0 ? (
@@ -481,15 +494,12 @@ export const TripPlannerPage = () => {
                         <Reorder.Group axis="y" values={dayItems} onReorder={handleReorderItems} className="space-y-8 md:space-y-12">
                             {dayItems.map((item) => (
                                 <Reorder.Item key={item.id} value={item} className="relative pl-14 md:pl-32 group">
-                                    {/* Time Marker */}
                                     <div className="absolute left-0 w-12 md:w-24 text-right pr-3 md:pr-8 pt-1">
                                         <span className="text-[10px] md:text-xs font-black opacity-100 block font-mono">{item.time}</span>
                                     </div>
                                     
-                                    {/* Square Dot */}
                                     <div className="absolute left-[2.25rem] md:left-[5rem] top-1.5 -translate-x-1/2 w-2.5 h-2.5 md:w-3 md:h-3 bg-white border-2 border-black z-10 transition-transform group-hover:scale-125 rounded-none rotate-45" style={{ borderColor: theme.primary }} />
 
-                                    {/* Card */}
                                     <div className="bg-white border hover:border-black/30 p-8 transition-all duration-300 group cursor-move relative overflow-hidden rounded-none shadow-sm hover:shadow-2xl" 
                                         style={{ borderColor: `${theme.text}15`, backgroundColor: theme.cardBg }}
                                     >
@@ -531,7 +541,6 @@ export const TripPlannerPage = () => {
           </div>
       </div>
 
-      {/* --- AI ASSISTANT OVERLAY --- */}
       <AnimatePresence>
         {aiState === 'active' && (
             <motion.div 
@@ -541,7 +550,6 @@ export const TripPlannerPage = () => {
                 className="fixed bottom-8 right-4 md:bottom-12 md:right-12 z-[100] max-w-[90vw] w-[400px]"
             >
                 <div className="bg-[#111] border border-white/10 p-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group">
-                    {/* Glowing effect */}
                     <div className="absolute -top-10 -left-10 w-32 h-32 bg-amber-500/20 blur-[50px] rounded-full group-hover:bg-amber-500/30 transition-all" />
                     
                     <div className="relative z-10 flex items-start gap-5">
@@ -559,7 +567,6 @@ export const TripPlannerPage = () => {
                         </div>
                     </div>
                     
-                    {/* Progress Bar */}
                     <motion.div 
                         className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-amber-500 to-orange-500"
                         initial={{ width: "0%" }}
@@ -571,7 +578,6 @@ export const TripPlannerPage = () => {
         )}
       </AnimatePresence>
 
-      {/* --- ADD ACTIVITY MODAL --- */}
       <AnimatePresence>
         {isAddingActivity && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-12 overflow-hidden">
@@ -668,6 +674,58 @@ export const TripPlannerPage = () => {
                                 placeholder={t('activity_notes')}
                             />
                         </div>
+
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2">
+                                <Camera className="w-3.5 h-3.5" />
+                                {language === 'ru' ? 'Изображение' : language === 'kz' ? 'Сурет' : 'Image'}
+                            </label>
+                            {newActivity.image ? (
+                                <div className="relative group/img">
+                                    <div className="w-full h-40 overflow-hidden border" style={{ borderColor: `${theme.text}15` }}>
+                                        <ImageWithFallback src={newActivity.image} className="w-full h-full object-cover" />
+                                    </div>
+                                    <button
+                                        onClick={() => setNewActivity({...newActivity, image: ''})}
+                                        className="absolute top-2 right-2 p-1.5 bg-black/70 text-white hover:bg-red-600 transition-colors"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <input
+                                        type="text"
+                                        value={newActivity.image || ''}
+                                        onChange={e => setNewActivity({...newActivity, image: e.target.value})}
+                                        className="w-full bg-transparent border-b-2 py-3 text-sm font-mono outline-none rounded-none"
+                                        style={{ borderColor: `${theme.text}20` }}
+                                        placeholder={language === 'ru' ? 'Вставьте URL изображения...' : language === 'kz' ? 'Сурет URL-ін қойыңыз...' : 'Paste image URL...'}
+                                    />
+                                    <label className="flex items-center justify-center gap-3 p-6 border-2 border-dashed cursor-pointer hover:bg-black/5 transition-colors" style={{ borderColor: `${theme.text}15` }}>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (ev) => {
+                                                        setNewActivity({...newActivity, image: ev.target?.result as string});
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                        />
+                                        <Camera className="w-5 h-5 opacity-30" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
+                                            {language === 'ru' ? 'Загрузить фото' : language === 'kz' ? 'Фото жүктеу' : 'Upload Photo'}
+                                        </span>
+                                    </label>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="p-8 border-t" style={{ borderColor: `${theme.text}10` }}>
@@ -693,11 +751,121 @@ export const TripPlannerPage = () => {
             />
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showPublishModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowPublishModal(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative z-10 w-full max-w-md p-8 rounded-lg shadow-2xl" style={{ backgroundColor: theme.background, color: theme.text }}>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black uppercase tracking-tight">{language === 'ru' ? 'Опубликовать маршрут' : language === 'kz' ? 'Маршрутты жариялау' : 'Publish Itinerary'}</h3>
+                <button onClick={() => setShowPublishModal(false)}><X className="w-5 h-5" /></button>
+              </div>
+              <p className="text-xs opacity-50 mb-6">{language === 'ru' ? 'Ваш маршрут будет доступен всему сообществу Kendala. Другие путешественники смогут просматривать и копировать его.' : language === 'kz' ? 'Маршрутыңыз Kendala қауымдастығына қолжетімді болады.' : 'Your itinerary will be visible to the entire Kendala community. Other travelers can view and copy it.'}</p>
+              <div className="space-y-3 mb-6 p-4 rounded border" style={{ borderColor: `${theme.primary}15`, backgroundColor: `${theme.primary}05` }}>
+                <div className="flex justify-between text-xs"><span className="opacity-50 uppercase tracking-wider">{language === 'ru' ? 'Название' : 'Title'}</span><span className="font-black">{tripTitle}</span></div>
+                <div className="flex justify-between text-xs"><span className="opacity-50 uppercase tracking-wider">{language === 'ru' ? 'Направление' : 'Destination'}</span><span className="font-black">{destination || '---'}</span></div>
+                <div className="flex justify-between text-xs"><span className="opacity-50 uppercase tracking-wider">{language === 'ru' ? 'Дней' : 'Days'}</span><span className="font-black">{dayCount}</span></div>
+                <div className="flex justify-between text-xs"><span className="opacity-50 uppercase tracking-wider">{language === 'ru' ? 'Активности' : 'Activities'}</span><span className="font-black">{itinerary.length}</span></div>
+              </div>
+              <button
+                onClick={async () => {
+                  setPublishing(true);
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session?.access_token) return;
+                    const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/community/trips`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${publicAnonKey}`, 'x-user-token': session.access_token, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ title: tripTitle, destination, days: dayCount, items: itinerary }),
+                    });
+                    if (res.ok) { toast.success(language === 'ru' ? 'Маршрут опубликован' : 'Itinerary published'); setShowPublishModal(false); }
+                  } catch (e) { console.error(e); } finally { setPublishing(false); }
+                }}
+                disabled={publishing || itinerary.length === 0}
+                className="w-full py-4 rounded text-xs font-black uppercase tracking-widest transition-all disabled:opacity-40"
+                style={{ backgroundColor: '#10B981', color: '#FFF' }}
+              >
+                {publishing ? (language === 'ru' ? 'Публикация...' : 'Publishing...') : (language === 'ru' ? 'Опубликовать' : language === 'kz' ? 'Жариялау' : 'Publish to Community')}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showInviteModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowInviteModal(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative z-10 w-full max-w-md p-8 rounded-lg shadow-2xl" style={{ backgroundColor: theme.background, color: theme.text }}>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black uppercase tracking-tight">{language === 'ru' ? 'Пригласить в поездку' : language === 'kz' ? 'Сапарға шақыру' : 'Invite to Trip'}</h3>
+                <button onClick={() => setShowInviteModal(false)}><X className="w-5 h-5" /></button>
+              </div>
+              <p className="text-xs opacity-50 mb-6">{language === 'ru' ? 'Пригласите друзей для совместного планирования маршрута.' : language === 'kz' ? 'Маршрутты бірге жоспарлау үшін достарыңызды шақырыңыз.' : 'Invite friends to collaboratively plan this trip together.'}</p>
+              <div className="flex gap-2 mb-4">
+                <div className="flex-1 relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30" />
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder={language === 'ru' ? 'Email друга' : 'Friend\'s email'}
+                    className="w-full pl-10 pr-4 py-3 border rounded text-sm bg-transparent outline-none"
+                    style={{ borderColor: `${theme.primary}20`, color: theme.text }}
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!inviteEmail.trim()) return;
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session?.access_token) return;
+                      const currentTripId = savedTrips.find(t => t.title === tripTitle)?.id;
+                      if (!currentTripId) { toast.error(language === 'ru' ? 'Сначала сохраните маршрут' : 'Save the trip first'); return; }
+                      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/trips/${currentTripId}/invite`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${publicAnonKey}`, 'x-user-token': session.access_token, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: inviteEmail, role: 'editor' }),
+                      });
+                      if (res.ok) {
+                        toast.success(language === 'ru' ? 'Приглашение отправлено' : 'Invite sent');
+                        setCollaborators(prev => [...prev, { email: inviteEmail, status: 'pending' }]);
+                        setInviteEmail('');
+                      } else {
+                        const err = await res.json().catch(() => ({ error: 'Request failed' }));
+                        toast.error(err.error || 'Failed');
+                      }
+                    } catch (e) { console.error(e); }
+                  }}
+                  className="px-4 py-3 rounded text-xs font-black uppercase tracking-widest"
+                  style={{ backgroundColor: theme.primary, color: theme.primaryForeground }}
+                >
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+              {collaborators.length > 0 && (
+                <div className="space-y-2 mt-4">
+                  <span className="text-[9px] font-black uppercase tracking-widest opacity-40">{language === 'ru' ? 'Приглашены' : 'Invited'}</span>
+                  {collaborators.map((c, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded border text-xs" style={{ borderColor: `${theme.primary}10` }}>
+                      <span className="font-mono">{c.email}</span>
+                      <span className="text-[9px] uppercase tracking-wider opacity-40 flex items-center gap-1">
+                        {c.status === 'active' ? <><Check className="w-3 h-3 text-emerald-500" /> Active</> : 'Pending'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
+    </PageTransition>
   );
 };
 
-// Helper for type colors
 function getTypeColor(type: string) {
     switch(type) {
         case 'travel': return 'bg-blue-500/10 text-blue-600 border-blue-200';

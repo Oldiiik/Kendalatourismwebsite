@@ -22,7 +22,6 @@ export const useWishlist = () => {
         try {
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
             
-            // 1. Try to load from server if logged in
             if (session && !sessionError) {
                 try {
                     const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/wishlist`, {
@@ -34,7 +33,7 @@ export const useWishlist = () => {
                     });
                     
                     if (res.ok) {
-                        const data = await res.json();
+                        const data = await res.json().catch(() => []);
                         if (Array.isArray(data)) {
                             setWishlist(data);
                             return; 
@@ -45,12 +44,10 @@ export const useWishlist = () => {
                 } catch (e) {
                     console.error('Server fetch failed', e);
                     setError('Failed to load wishlist from server');
-                    // Do not fallback to local storage for auth users to ensure data consistency
                     return;
                 }
             }
 
-            // 2. Guest mode: use local storage
             const localWishlist = localStorage.getItem('kendala_wishlist');
             if (localWishlist) {
                 setWishlist(JSON.parse(localWishlist));
@@ -79,8 +76,8 @@ export const useWishlist = () => {
             } else {
                 const newItem: WishlistItem = {
                     id: place.id,
-                    name: place.name.en, // Default to EN for now, can be updated to respect locale
-                    region: regionId, // Use the region context
+                    name: place.name.en,
+                    region: regionId,
                     category: place.type,
                     image: place.image
                 };
@@ -89,9 +86,7 @@ export const useWishlist = () => {
 
             const { data: { session } } = await supabase.auth.getSession();
             
-            // 1. Save to Server if logged in
             if (session) {
-                // If removing
                 if (isLiked) {
                     await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/wishlist/${place.id}`, {
                         method: 'DELETE',
@@ -102,7 +97,6 @@ export const useWishlist = () => {
                         }
                     });
                 } else {
-                    // If adding
                     const newItem = newWishlist.find(item => item.id === place.id);
                     await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-3ab99f71/wishlist`, {
                         method: 'POST',
@@ -114,17 +108,14 @@ export const useWishlist = () => {
                         body: JSON.stringify(newItem)
                     });
                 }
-                // For auth users, we update state but do NOT save to local storage
-                // to prevent data mismatch.
                 setWishlist(newWishlist);
                 return !isLiked;
             } 
             
-            // 2. Guest Mode: Update local storage
             localStorage.setItem('kendala_wishlist', JSON.stringify(newWishlist));
             setWishlist(newWishlist);
             
-            return !isLiked; // Return new state (true = liked, false = unliked)
+            return !isLiked;
 
         } catch (e) {
             setError('Failed to update wishlist');

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plane, Train, MapPin, Navigation, Clock, ArrowRight, Plus, Maximize2, Info, Compass, Car, Loader2, Zap } from 'lucide-react';
+import { Plane, Train, MapPin, NavigationIcon as Navigation, Clock, ArrowRight, Plus, Maximize2, Info, Compass, Car, Loader2, Zap } from '../ui/icons';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -29,8 +29,9 @@ export const TravelRealityCheck = () => {
                 },
                 body: JSON.stringify({ from, to, language })
             });
-            const data = await res.json();
-            setResult(data);
+            if (!res.ok) throw new Error(`Reality check failed: ${res.status}`);
+            const data = await res.json().catch(() => null);
+            if (data) setResult(data);
         } catch (e) {
             console.error(e);
         } finally {
@@ -106,7 +107,6 @@ export const TravelRealityCheck = () => {
                             animate={{ opacity: 1, y: 0 }}
                             className="space-y-6 pb-10"
                         >
-                            {/* AI Wisdom Banner */}
                             <div className="p-8 border bg-current/5 space-y-3 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-4 opacity-10">
                                     <Compass className="w-20 h-20" />

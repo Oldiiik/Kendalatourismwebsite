@@ -4,7 +4,8 @@ import { supabase } from '../../utils/supabase/client';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSeason } from '../../contexts/SeasonContext';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { ArrowRight, Loader2, Mail, Lock, User, Sparkles } from 'lucide-react';
+import { ArrowRight, Loader2, Mail, Lock, User, Sparkles, Eye } from '../ui/icons';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface AuthTerminalProps {
     onAuthSuccess: () => void;
@@ -13,6 +14,7 @@ interface AuthTerminalProps {
 export const AuthTerminal = ({ onAuthSuccess }: AuthTerminalProps) => {
     const { theme } = useSeason();
     const { language } = useLanguage();
+    const { signInAsGuest } = useAuth();
     const [mode, setMode] = useState<'login' | 'signup'>('login');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -23,9 +25,9 @@ export const AuthTerminal = ({ onAuthSuccess }: AuthTerminalProps) => {
     const [name, setName] = useState('');
 
     const labels = {
-        kz: { signin: 'Кіру', join: 'Тіркелу', name: 'Толық аты-жөні', email: 'Электронды пошта', pass: 'Құпия сөз', forgot: 'Ұмыттыңыз ба?', enter: 'Далаға қадам басу', account: 'Тіркелгі жасау', welcome: 'Кендалаға қош келдіңіз.' },
-        ru: { signin: 'Войти', join: 'Создать', name: 'Полное имя', email: 'Электронная почта', pass: 'Пароль', forgot: 'Забыли?', enter: 'Шагнуть в степь', account: 'Создать аккаунт', welcome: 'Добро пожаловать в Кендалу.' },
-        en: { signin: 'Sign In', join: 'Join', name: 'Full Name', email: 'Email Address', pass: 'Password', forgot: 'Forgot?', enter: 'Step into the Steppe', account: 'Create Account', welcome: 'Welcome to Kendala.' }
+        kz: { signin: 'Кіру', join: 'Тіркелу', name: 'Толық аты-жөні', email: 'Электронды пошта', pass: 'Құпия сөз', forgot: 'Ұмыттыңыз ба?', enter: 'Далаға қадам басу', account: 'Тіркелгі жасау', welcome: 'Кендалаға қош келдіңіз.', guest: 'Қонақ ретінде кіру' },
+        ru: { signin: 'Войти', join: 'Создать', name: 'Полное имя', email: 'Электронная почта', pass: 'Пароль', forgot: 'Забыли?', enter: 'Шагнуть в степь', account: 'Создать аккаунт', welcome: 'Добро пожаловать в Кендалу.', guest: 'Войти как гость' },
+        en: { signin: 'Sign In', join: 'Join', name: 'Full Name', email: 'Email Address', pass: 'Password', forgot: 'Forgot?', enter: 'Step into the Steppe', account: 'Create Account', welcome: 'Welcome to Kendala.', guest: 'Continue as Guest' }
     }[language];
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -60,7 +62,7 @@ export const AuthTerminal = ({ onAuthSuccess }: AuthTerminalProps) => {
                 body: JSON.stringify({ email, password, name })
             });
 
-            const data = await response.json();
+            const data = await response.json().catch(() => ({ error: 'Registration failed' }));
             if (!response.ok) throw new Error(data.error || 'Registration failed');
 
             const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
@@ -73,6 +75,11 @@ export const AuthTerminal = ({ onAuthSuccess }: AuthTerminalProps) => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleGuestLogin = () => {
+        signInAsGuest();
+        onAuthSuccess();
     };
 
     if (!theme) return null;
@@ -185,6 +192,25 @@ export const AuthTerminal = ({ onAuthSuccess }: AuthTerminalProps) => {
                     {!loading && <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />}
                 </button>
             </form>
+
+            {/* Guest Login */}
+            <div className="mt-4 md:mt-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="flex-1 h-px" style={{ backgroundColor: `${theme.text}10` }} />
+                    <span className="text-[8px] uppercase tracking-[0.2em] opacity-30" style={{ color: theme.text }}>or</span>
+                    <div className="flex-1 h-px" style={{ backgroundColor: `${theme.text}10` }} />
+                </div>
+                <button 
+                    onClick={handleGuestLogin}
+                    className="w-full py-3 border transition-all flex items-center justify-center gap-3 group hover:opacity-100 opacity-60 active:scale-[0.98]"
+                    style={{ borderColor: `${theme.text}20`, color: theme.text }}
+                >
+                    <Eye className="w-3.5 h-3.5 opacity-60" />
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] md:tracking-[0.3em]">
+                        {labels.guest}
+                    </span>
+                </button>
+            </div>
             
             <div className="mt-6 lg:mt-10 pt-4 lg:pt-6 border-t flex justify-between items-center" style={{ borderColor: `${theme.text}05` }}>
                 <div className="flex items-center gap-2 opacity-20" style={{ color: theme.text }}>

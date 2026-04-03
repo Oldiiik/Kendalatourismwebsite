@@ -1,56 +1,84 @@
+const fallbackFiles = [
+  'abay_qunanbayuli.jpg', 'abylai_khan.jpg', 'aisha_bibi.jpg', 'al_farabi.jpg', 'autumn.jpg',
+  'baursak.jpg', 'bayterek.jpg', 'beldik.jpg', 'beshbarmak.jpg', 'blacksmithing.jpg',
+  'bogenbay_batyr.webp', 'bone_carving.jpg', 'chapan.jpg', 'dina_nurpeisova.jpg', 'embroidery.jpg',
+  'felt_making.jpg', 'golden_man.jpg', 'irimshik.jpg', 'jewelry.jpg', 'kamzol.webp',
+  'kazy.jpg', 'kazygurt.jpg', 'kenesary_khan.jpg', 'kimeshek.jpg', 'korkyt_ata.jpg',
+  'kozy_korpesh.jpg', 'kurmangazy.jpg', 'kurt.jpg', 'kymyz.jpg', 'lake_balkhash.jpg',
+  'leatherwork.jpg', 'masi.webp', 'pottery.jpg', 'saukele.jpg', 'shekpan.jpg',
+  'shelpek.jpg', 'shokan_walikhanov.jpg', 'shubat.jpg', 'spring.jpg', 'summer.jpg',
+  'sybyzgy.jpg', 'syrmak.jpg', 'takiya.jpg', 'tomyris.jpg', 'turkestan.jpg',
+  'tymak.jpg', 'winter.jpg', 'wood_carving.jpg', 'zhent.jpg'
+];
+
 export const buildImageUrl = (url: string, width: number = 1920, quality: number = 85): string => {
   if (!url) return url;
-  if (!url.includes('unsplash.com')) return url;
-  const baseUrl = url.split('?')[0];
-  return `${baseUrl}?w=${width}&q=${quality}&fm=webp&auto=format&fit=crop`;
+  if (url.includes('unsplash.com')) {
+      let sum = 0;
+      for(let i=0; i<url.length; i++) sum += url.charCodeAt(i);
+      const file = fallbackFiles[sum % fallbackFiles.length];
+      return `https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/${file}`;
+  }
+  // Supabase Storage doesn't support image transformation query params — return URL as-is
+  return url.split('?')[0];
+};
+
+// Tiny 20px blur placeholder for instant LQIP
+export const buildLqipUrl = (url: string): string => {
+  if (!url) return '';
+  if (url.includes('unsplash.com')) {
+      let sum = 0;
+      for(let i=0; i<url.length; i++) sum += url.charCodeAt(i);
+      const file = fallbackFiles[sum % fallbackFiles.length];
+      return `https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/${file}`;
+  }
+  // Supabase Storage doesn't support image transformation — return URL as-is
+  return url.split('?')[0];
 };
 
 export const buildSrcSet = (url: string): string => {
-  if (!url || !url.includes('unsplash.com')) return '';
-  const widths = [640, 750, 828, 1080, 1200, 1920, 2400, 3840];
-  return widths
-    .map(w => `${buildImageUrl(url, w)} ${w}w`)
-    .join(', ');
+  // Supabase Storage doesn't support width-based variants — return empty
+  return '';
 };
 
 export const hq = (url: string, width: number = 1920): string => buildImageUrl(url, width, 85);
 
 export const LANG_BG_URLS = [
-  'https://images.unsplash.com/photo-1637842729600-d256c8960194',
-  'https://images.unsplash.com/photo-1737973832585-d8b3ba781211',
-  'https://images.unsplash.com/photo-1562595706-61433957484a',
+  'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/summer.jpg',
+  'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/spring.jpg',
+  'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/autumn.jpg',
 ] as const;
 
 export const SEASON_SELECTION_URLS: Record<string, string> = {
-  winter: 'https://images.unsplash.com/photo-1715534968151-097f0651e561',
-  spring: 'https://images.unsplash.com/photo-1626251446230-f24d2dc814ed',
-  summer: 'https://images.unsplash.com/photo-1672928130266-aaf030518e4f',
-  autumn: 'https://images.unsplash.com/photo-1696882144000-940a2f67fa21',
+  winter: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/winter.jpg',
+  spring: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/spring.jpg',
+  summer: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/summer.jpg',
+  autumn: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/autumn.jpg',
 };
 
 export const HOME_HERO_URLS: Record<string, string> = {
-  winter: 'https://images.unsplash.com/photo-1646656673850-cf3dc0c25759',
-  spring: 'https://images.unsplash.com/photo-1693642988144-3ba970781679',
-  summer: 'https://images.unsplash.com/photo-1752503256243-2edf964c00d0',
-  autumn: 'https://images.unsplash.com/photo-1672928130266-aaf030518e4f',
+  winter: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/winter.jpg',
+  spring: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/spring.jpg',
+  summer: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/summer.jpg',
+  autumn: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/autumn.jpg',
 };
 
 export const HOME_FEATURE_URLS = {
-  places: 'https://images.unsplash.com/photo-1752584157449-a3c95f6b7b2d',
-  map: 'https://images.unsplash.com/photo-1488375634201-b85b28653a79',
-  ai: 'https://images.unsplash.com/photo-1514524929069-1021cbe21035',
+  places: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/lake_balkhash.jpg',
+  map: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/kazygurt.jpg',
+  ai: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/golden_man.jpg',
 } as const;
 
 export const NEWS_FEATURE_URLS = [
-    'https://images.unsplash.com/photo-1604145703889-5c58d94ee681',
-    'https://images.unsplash.com/photo-1459196198227-6655e22114d8',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/abay_qunanbayuli.jpg',
+    'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/turkestan.jpg',
 ];
 
 export const REGION_HERO_URLS: Record<string, string> = {
-  north: 'https://images.unsplash.com/photo-1642693373768-0b86505bd7c8',
-  south: 'https://images.unsplash.com/photo-1752584157449-a3c95f6b7b2d',
-  west: 'https://images.unsplash.com/photo-1763365803423-48d4b9402c5e',
-  east: 'https://images.unsplash.com/photo-1605354180969-0f3fc29665bf',
+  north: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/winter.jpg',
+  south: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/turkestan.jpg',
+  west: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/lake_balkhash.jpg',
+  east: 'https://wrxtnfwckeqhwfjsaifh.supabase.co/storage/v1/object/public/make-1a93d248-public-assets/kazygurt.jpg',
 };
 
 export const getLangBgUrl = (index: number): string =>
@@ -58,15 +86,15 @@ export const getLangBgUrl = (index: number): string =>
 
 export const getSeasonSelectionUrl = (season: string): string => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const width = isMobile ? 800 : 2400;
+  const width = isMobile ? 640 : 1440;
   return buildImageUrl(SEASON_SELECTION_URLS[season] || SEASON_SELECTION_URLS.summer, width, 75);
 };
 
 export const getHomeHeroUrl = (season: string): string =>
-  buildImageUrl(HOME_HERO_URLS[season] || HOME_HERO_URLS.summer, 3840);
+  buildImageUrl(HOME_HERO_URLS[season] || HOME_HERO_URLS.summer, 1920);
 
 export const getHomeFeatureUrl = (key: keyof typeof HOME_FEATURE_URLS): string =>
-  buildImageUrl(HOME_FEATURE_URLS[key], 3840);
+  buildImageUrl(HOME_FEATURE_URLS[key], 1080);
 
 export type PreloadPriority = 'critical' | 'high' | 'medium' | 'low';
 
@@ -83,46 +111,50 @@ export const getPreloadManifest = (opts: {
   const { hasLanguage, savedSeason } = opts;
   
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const seasonWidth = isMobile ? 800 : 2400;
+  const seasonWidth = isMobile ? 640 : 1440;
   
   if (!hasLanguage) {
-    LANG_BG_URLS.forEach(url => {
-      entries.push({ url: buildImageUrl(url, 1920), priority: 'critical' });
+    // Only preload the first language bg as critical, rest as medium
+    entries.push({ url: buildImageUrl(LANG_BG_URLS[0], 1080), priority: 'critical' });
+    LANG_BG_URLS.slice(1).forEach(url => {
+      entries.push({ url: buildImageUrl(url, 1080), priority: 'medium' });
     });
 
     Object.values(SEASON_SELECTION_URLS).forEach(url => {
-      entries.push({ url: buildImageUrl(url, seasonWidth, 75), priority: isMobile ? 'critical' : 'medium' });
+      entries.push({ url: buildImageUrl(url, seasonWidth, 75), priority: 'low' });
     });
   } else if (!savedSeason) {
+    // Only preload season images at reduced size
     Object.values(SEASON_SELECTION_URLS).forEach(url => {
       entries.push({ url: buildImageUrl(url, seasonWidth, 75), priority: 'critical' });
     });
 
+    // Hero images are low priority until season is picked
     Object.values(HOME_HERO_URLS).forEach(url => {
-      entries.push({ url: buildImageUrl(url, 3840), priority: 'medium' });
+      entries.push({ url: buildImageUrl(url, 1080), priority: 'low' });
     });
   } else {
     if (HOME_HERO_URLS[savedSeason]) {
-      entries.push({ url: buildImageUrl(HOME_HERO_URLS[savedSeason], 3840), priority: 'critical' });
+      entries.push({ url: buildImageUrl(HOME_HERO_URLS[savedSeason], 1920), priority: 'critical' });
     }
 
     Object.values(HOME_FEATURE_URLS).forEach(url => {
-      entries.push({ url: buildImageUrl(url, 3840), priority: 'high' });
+      entries.push({ url: buildImageUrl(url, 1080), priority: 'medium' });
     });
 
     Object.entries(HOME_HERO_URLS).forEach(([s, url]) => {
       if (s !== savedSeason) {
-        entries.push({ url: buildImageUrl(url, 3840), priority: 'low' });
+        entries.push({ url: buildImageUrl(url, 1080), priority: 'low' });
       }
     });
   }
 
   Object.values(REGION_HERO_URLS).forEach(url => {
-    entries.push({ url: buildImageUrl(url, 1920), priority: 'medium' });
+    entries.push({ url: buildImageUrl(url, 1080), priority: 'low' });
   });
 
   NEWS_FEATURE_URLS.forEach(url => {
-      entries.push({ url: buildImageUrl(url, 1200), priority: 'low' });
+      entries.push({ url: buildImageUrl(url, 800), priority: 'low' });
   });
 
   return entries;
